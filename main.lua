@@ -1,19 +1,17 @@
+require "preload"
 local main = require "wind.main"
-
-local _print = print
-
-local function print(...)
-    _print("main:", ...)
-end
+local wind = require "lualib.wind"
 
 
--- test
-print('hello world')
+
+
+print('hello world', dump(wind.self()))
 
 local root = main.fork("root.lua")
 local worker = main.fork("worker.lua")
+assert(root == 1)
+assert(worker == 2)
 
-print("root:", root, "worker:", worker)
 
 main.join_threads()
 

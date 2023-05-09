@@ -1,10 +1,4 @@
-local _print = print
+require "preload"
+local wind = require "lualib.wind"
 
-local function print(...)
-    _print("worker:", ...)
-end
-
-
-
-
-print("i'm a worker thread, bye")
+print("hello world", dump(wind.self()))

@@ -8,6 +8,8 @@
 void openlibs(lua_State *L) {
 	luaL_openlibs(L);
 	luaL_requiref(L, "wind.main", lua_lib_wind_main, 0);
+	luaL_openlibs(L);
+	luaL_requiref(L, "wind.core", lua_lib_wind_core, 0);
 	lua_pop(L, 1);
 }
 

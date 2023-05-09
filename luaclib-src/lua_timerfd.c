@@ -9,7 +9,7 @@
 
 
 static int
-l_create(lua_State *L) {
+l_timerfd_create(lua_State *L) {
 	int fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
 	if (fd == -1) {
 		lua_pushnil(L);
@@ -24,7 +24,7 @@ l_create(lua_State *L) {
 
 
 static int
-l_settime(lua_State *L) {
+l_timerfd_settime(lua_State *L) {
 	int fd = luaL_checkinteger(L, 1);
 	lua_Integer delay = luaL_checkinteger(L, 2);
 
@@ -52,7 +52,7 @@ l_settime(lua_State *L) {
 
 
 static int
-l_gettime(lua_State *L) {
+l_timerfd_gettime(lua_State *L) {
 
 	struct itimerspec curr_value;
 
@@ -68,7 +68,7 @@ l_gettime(lua_State *L) {
 }
 
 static int
-l_read(lua_State *L) {
+l_timerfd_read(lua_State *L) {
 	static uint64_t time;
 
 	int fd = luaL_checkinteger(L, 1);
@@ -83,10 +83,11 @@ l_read(lua_State *L) {
 
 
 static int
-l_close(lua_State *L) {
+l_timerfd_close(lua_State *L) {
 	int fd = luaL_checkinteger(L, 1);
 	if (close(fd)) {
 		lua_pushstring(L, strerror(errno));
+		return 1;
 	}
 
 	return 0;
@@ -96,11 +97,11 @@ l_close(lua_State *L) {
 int
 lua_lib_timerfd(lua_State *L) {
 	static const struct luaL_Reg l[] = {
-		{"create", l_create},
-		{"settime", l_settime},
-		{"gettime", l_gettime},
-		{"close", l_close},
-		{"read", l_read},
+		{"create", l_timerfd_create},
+		{"settime", l_timerfd_settime},
+		{"gettime", l_timerfd_gettime},
+		{"close", l_timerfd_close},
+		{"read", l_timerfd_read},
 		{NULL, NULL}
 	};
 

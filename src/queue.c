@@ -9,7 +9,7 @@
 #define CHECKNULL(x) ;if(x == NULL) { perror("Malloc failed."); exit(1); }
 
 #define LQUEUE 2048
-#define LDEFAULT_SLOT 500
+#define LDEFAULT_SLOT 512
 
 #define EMPTY 0
 #define FILLED 1

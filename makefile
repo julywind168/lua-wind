@@ -9,6 +9,7 @@ LUALIB = lua_wind.c \
 	lua_serialize.c \
 	lua_socket.c \
 	lua_epoll.c \
+	lua_eventfd.c \
 	lua_timerfd.c \
 	lua_util.c \
 

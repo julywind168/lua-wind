@@ -14,6 +14,7 @@
 #include "lua_serialize.h"
 #include "lua_socket.h"
 #include "lua_timerfd.h"
+#include "lua_eventfd.h"
 
 #include "queue.h"
 
@@ -98,6 +99,21 @@ getself(lua_State *L) {
 }
 
 static int
+l_self(lua_State *L) {
+	struct Proc *self = getself(L);
+	lua_pushinteger(L, self->id);
+	if (self->id == THREAD_MAIN) {
+		return 1;
+	}
+	lua_pushinteger(L, self->efd);
+	if (self->id == THREAD_ROOT) {
+		lua_pushinteger(L, self->epollfd);
+		return 3;
+	}
+	return 2;
+}
+
+static int
 l_recv(lua_State *L) {
 	char * content;
 	int length;
@@ -124,7 +140,13 @@ l_send(lua_State *L) {
 		return 0;
 	}
 
-	qpush(to->queue, content, content_len);
+	if (qpush(to->queue, content, content_len)) {
+		// write eventfd to root or worker, to wake up thread
+		if (to->id >= THREAD_ROOT) {
+			uint64_t increment = 1;
+			write(to->efd, &increment, sizeof(increment));
+		}
+	}
 
 	return 0;
 }
@@ -134,6 +156,7 @@ lua_lib_wind_core(lua_State* L) {
 	static const struct luaL_Reg l[] = {
 		{"recv", l_recv},
 		{"send", l_send},
+		{"self", l_self},
 		{NULL, NULL}
 	};
     luaL_newlib(L, l);
@@ -205,6 +228,8 @@ static void * ll_thread(void *arg) {
 	lua_pop(L, 1);
 	luaL_requiref(L, "wind.state", lua_lib_wind_state, 0);
 	lua_pop(L, 1);
+	luaL_requiref(L, "wind.eventfd", lua_lib_eventfd, 0);
+	lua_pop(L, 1);
 	luaL_requiref(L, "wind.serialize", lua_lib_serialize, 0);
 	lua_pop(L, 1);
 	luaL_requiref(L, "wind.util", lua_lib_util, 0);
@@ -215,6 +240,10 @@ static void * ll_thread(void *arg) {
 	if (lua_pcall(L,0, 0, 0) != 0) 
 		fprintf(stderr, "thread[%d] error: %s\n", self->id, lua_tostring(L, -1));
 
+	close(self->efd);
+	if (self->id == THREAD_ROOT) {
+		close(self->epollfd);
+	}
 	lua_close(L);
 	return NULL;
 }

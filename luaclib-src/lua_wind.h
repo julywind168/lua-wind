@@ -21,7 +21,6 @@ struct Proc {
 	int id;
 	Queue *queue;
 	pthread_t thread;
-    int epollfd;
     int efd;
 };
 

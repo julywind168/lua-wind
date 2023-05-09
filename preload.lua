@@ -1,5 +1,11 @@
 local wind = require "lualib.wind"
 
+-- wind config
+local config = {
+    nworker = 2
+}
+
+
 -- load class
 local state_classes = {
     "User"
@@ -78,3 +84,6 @@ end
 function dump(t)
     return t2line(t)
 end
+
+
+return config

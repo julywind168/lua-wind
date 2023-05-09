@@ -106,21 +106,15 @@ l_self(lua_State *L) {
 		return 1;
 	}
 	lua_pushinteger(L, self->efd);
-	if (self->id == THREAD_ROOT) {
-		lua_pushinteger(L, self->epollfd);
-		return 3;
-	}
 	return 2;
 }
 
 static int
 l_recv(lua_State *L) {
-	char * content;
-	int length;
 	struct Proc *self = getself(L);
-	bool b = qpop(self->queue, &content, &length);
-	if (b) {
-		lua_pushlstring(L, content, length);
+	void * data = q_pop(self->queue);
+	if (data) {
+		lua_pushlightuserdata(L, data);
 		return 1;
 	} else {
 		return 0;
@@ -129,26 +123,31 @@ l_recv(lua_State *L) {
 
 static int 
 l_send(lua_State *L) {
-	size_t content_len;
 	int pid = luaL_checkinteger(L, 1);
-	const char * content = luaL_checklstring(L, 2, &content_len);	// 消息字符串
-
+	void *data = lua_touserdata(L, 2);
+	if (data == NULL) {
+		luaL_error(L, "send error: data is NULL");
+		return 0;
+	}
 	struct Proc *to = g_processes + pid;
-
 	if (to == NULL) {
 		luaL_error(L, "send error: thread %d is no-exist", pid);
 		return 0;
 	}
-
-	if (qpush(to->queue, content, content_len)) {
+	if (q_push(to->queue, data)) {
 		// write eventfd to root or worker, to wake up thread
 		if (to->id >= THREAD_ROOT) {
 			uint64_t increment = 1;
 			write(to->efd, &increment, sizeof(increment));
 		}
 	}
-
 	return 0;
+}
+
+static int
+l_nthread(lua_State *L) {
+	lua_pushinteger(L, last_proc_idx+1);
+	return 1;
 }
 
 int
@@ -157,6 +156,7 @@ lua_lib_wind_core(lua_State* L) {
 		{"recv", l_recv},
 		{"send", l_send},
 		{"self", l_self},
+		{"nthread", l_nthread},
 		{NULL, NULL}
 	};
     luaL_newlib(L, l);
@@ -236,15 +236,12 @@ static void * ll_thread(void *arg) {
 	lua_pop(L, 1);
 	// end
 
-
 	if (lua_pcall(L,0, 0, 0) != 0) 
 		fprintf(stderr, "thread[%d] error: %s\n", self->id, lua_tostring(L, -1));
 
 	close(self->efd);
-	if (self->id == THREAD_ROOT) {
-		close(self->epollfd);
-	}
 	lua_close(L);
+	q_free(self->queue);
 	return NULL;
 }
 
@@ -276,25 +273,6 @@ l_fork(lua_State *L) {
 		luaL_error(L, "unable to create eventfd");
 	}
 
-	// only root need epoll
-	if (id == THREAD_ROOT) {
-		self->epollfd = epoll_create1(0);
-		if (self->epollfd == -1) {
-			perror("epoll_create1");
-			luaL_error(L, "unable to create epollfd");
-			return 0;
-		}
-
-		struct epoll_event event;
-		event.data.fd = self->efd;
-		event.events = EPOLLIN;
-		if (epoll_ctl(self->epollfd, EPOLL_CTL_ADD, self->efd, &event) == -1) {
-			perror("epoll_ctl");
-			luaL_error(L, "error on epoll_ctl");
-			return 0;
-		}
-	}
-
 	if (L1 == NULL)
 		luaL_error(L, "unable to create new state");
 
@@ -319,6 +297,8 @@ l_join_threads(lua_State *L) {
 			exit(-1);
 		}
 	}
+	// clean main
+	q_free(g_processes->queue);
 	return 0;
 }
 

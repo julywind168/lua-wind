@@ -16,9 +16,7 @@
 
 struct _message{
 	_Atomic char flag;		// 0 is empty, 1 is has data
-	int len_slot;
-	int len_data;
-	char *content;
+	void *data;
 };
 
 struct _queue{
@@ -42,10 +40,7 @@ q_initialize()
 	{
 		m 			 = malloc(sizeof(Message)) CHECKNULL(m)
 		m->flag 	 = EMPTY;
-		m->len_slot  = LDEFAULT_SLOT;
-		m->len_data  = 0;
-		m->content 	 = malloc(sizeof(char) * LDEFAULT_SLOT) CHECKNULL(m->content)
-
+		m->data 	 = NULL;
 		q->data[i] = m;
 	}
 
@@ -53,7 +48,7 @@ q_initialize()
 }
 
 bool
-qpush(Queue *queue, const char *content, int length)
+q_push(Queue *queue, void *data)
 {
 	int index;					
 	int count = queue->writeindex - queue->readindex + 1; //2047	-	0    2048     2047 时超载
@@ -70,20 +65,14 @@ qpush(Queue *queue, const char *content, int length)
 	index = index%LQUEUE;
 	
 	Message *m = queue->data[index];
-	if (length > m->len_slot) {
-		m->content = realloc(m->content, length) CHECKNULL(m->content)
-		m->len_slot = length;
-	}
-
-	m->len_data = length;
-	memcpy(m->content, content, length);
+	m->data = data;
 	m->flag = FILLED;
 
 	return true;
 }
 
-bool
-qpop(Queue *queue, char**content, int *length)
+void *
+q_pop(Queue *queue)
 {
 
 	// printf("readindex: %llu\n", queue->readindex);
@@ -92,25 +81,21 @@ qpop(Queue *queue, char**content, int *length)
 	Message *m = queue->data[index];
 
 	if (m->flag == EMPTY) {
-		return false;
+		return NULL;
 	} else {
-		*content = m->content;
-		*length = m->len_data;
-
 		m->flag = EMPTY;
 		queue->readindex++;
-		// queue->count--;
-		return true;
+		return m->data;
 	}
 }
 
 void
-queue_free(Queue *queue)
+q_free(Queue *queue)
 {  
-	for (int i = 0; i < LQUEUE; ++i)
-	{
-		free(queue->data[i]->content);
-		free(queue->data);
+	for (int i = 0; i < LQUEUE; ++i) {
+		if (queue->data[i]->flag == FILLED) {
+			free(queue->data[i]);
+		}
 	}
 	free(queue);
 }

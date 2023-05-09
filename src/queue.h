@@ -13,15 +13,15 @@ q_initialize();
 
 
 bool
-qpush(Queue *queue, const char *content, int length);
+q_push(Queue *queue, void *data);
 
 
-bool
-qpop(Queue *queue, char**content, int *length);
+void *
+q_pop(Queue *queue);
 
 
 void
-queue_free(Queue *queue);
+q_free(Queue *queue);
 
 
 

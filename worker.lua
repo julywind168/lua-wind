@@ -1,4 +1,10 @@
-require "preload"
 local wind = require "lualib.wind"
+local worker = require "lualib.worker"
 
-print("hello world", dump(wind.self()))
+
+
+
+
+
+print("start")
+worker.start()

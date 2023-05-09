@@ -7,6 +7,14 @@ A multithreading framework written for lua
 4. 每个线程有一个任务队列
 
 
+## Test (only linux now)
+```
+    1. git clone https://github.com/HYbutterfly/wind.git
+    2. cd wind/3rd/lua-5.4.6 && make linux
+    3. cd wind && make
+    4. ./wind main.lua
+```
+
 ## Thread 功能分配
 ```
     1. main 主线程

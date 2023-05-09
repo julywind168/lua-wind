@@ -11,7 +11,7 @@ end
 
 
 
--- hook prin
+-- hook print
 local self = wind.self()
 
 

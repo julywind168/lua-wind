@@ -17,10 +17,11 @@ local function try(f, self, ...)
 end
 
 function wind._initstate(classname, t, ...)
-    local class = assert(wind.sclass[classname], classname)
+    local class = wind.sclass[classname]
     local id = assert(t.id)
     assert(not wind.statecache[id], string.format("state[%d] already exist", id))
     setmetatable(t, {__index = class})
+    wind.statecache[id] = t
     try(t._init, t, ...)
     return t
 end

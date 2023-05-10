@@ -5,8 +5,28 @@ local serialize = require "wind.serialize"
 local wind = {
     THREAD_MAIN = 0,
     THREAD_ROOT = 1,
-    sclass = {}
+    sclass = {},
+    statecache = {},    -- id => {}
 }
+
+-- state ---------------------------------------
+local function try(f, self, ...)
+    if f then
+        f(self, ...)
+    end
+end
+
+function wind._initstate(classname, t, ...)
+    local class = assert(wind.sclass[classname], classname)
+    local id = assert(t.id)
+    assert(not wind.statecache[id], string.format("state[%d] already exist", id))
+    setmetatable(t, {__index = class})
+    try(t._init, t, ...)
+    return t
+end
+
+
+-- end
 
 function wind.nthread()
     if not wind._nthread then
@@ -58,6 +78,10 @@ end
 function wind.send(thread_id, ...)
     print("send", thread_id, ...)
     return core.send(thread_id, serialize.pack(wind.self().id, ...))
+end
+
+function wind.send2root(...)
+    wind.send(wind.THREAD_ROOT, ...)
 end
 
 function wind.send2workers(...)

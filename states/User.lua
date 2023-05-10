@@ -8,6 +8,10 @@
 ]]
 local User = {}
 
+function User:_init(...)
+    print("User._init", dump(self), ...)
+end
+
 function User:login()
     self.loginc = self.loginc + 1
     return self

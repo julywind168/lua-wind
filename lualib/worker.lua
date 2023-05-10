@@ -10,8 +10,12 @@ local M = {
 
 local CMD = {}
 
-function CMD._exit()
+function CMD:_exit()
     M.alive = false
+end
+
+function CMD:_newstate(classname, t, ...)
+    wind._initstate(classname, t, ...)
 end
 
 

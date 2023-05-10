@@ -3,6 +3,7 @@
 local config = require "preload"
 local eventfd = require "wind.eventfd"
 local wind = require "lualib.wind"
+local root = require "wind.root"
 
 local M = {
     alive = true
@@ -34,6 +35,46 @@ local function handle(source, cmd, ...)
     end
 end
 
+
+local function turn_worker_alloter()
+    local id = 1
+    return function ()
+        id = id + 1
+        if id > config.nthread - 1 then
+            id = 2
+        end
+        return id
+    end
+end
+
+M.worker_alloter = turn_worker_alloter()
+
+-- thread_id sould been root or worker
+function M._newstate(classname, t, thread_id, ...)
+    assert(wind.sclass[classname], "not found preload class:"..tostring(classname))
+    assert(t, "newstate need a pure data table")
+    assert(not t.id, "state.id is reserved, it will been gen by framework")
+
+    thread_id = thread_id or M.worker_alloter()
+    assert(thread_id > 0 and thread_id < config.nthread)
+    local id = root.newstate(thread_id)
+    t.id = id
+
+    if thread_id == wind.THREAD_ROOT then
+        return wind._initstate(classname, t, ...)
+    else
+        wind.send(thread_id, "_newstate", classname, t, ...)
+    end
+end
+
+-- 根据 worker_alloter 分配
+function M.newstate(classname, t, ...)
+    return M._newstate(classname, t, nil, ...)
+end
+
+function M.newstate2self(classname, t, ...)
+    return M._newstate(classname, t, wind.THREAD_ROOT, ...)
+end
 
 function M.exit()
     wind.send2workers("_exit")

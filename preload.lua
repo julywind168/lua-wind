@@ -5,6 +5,7 @@ local config = {
     nworker = 2
 }
 
+config.nthread = config.nworker + 2
 
 -- load class
 local state_classes = {

@@ -40,7 +40,7 @@ static uint32_t last_state_idx = 0;
 static struct State*
 quey_state(lua_State *L){
     uint32_t id = luaL_checkinteger(L, 1);
-    return g_states + id - 1;
+    return g_states + id;
 }
 
 
@@ -163,18 +163,18 @@ lua_lib_wind_core(lua_State* L) {
     return 1;
 }
 /////////////////////////////////// wind.root ///////////////////////////////////
-static int last_threadid = 1;
 
+// 0 号 state 暂时保留
 static uint32_t
 gen_state_id() {
-    for (uint32_t i = last_state_idx; i < MAX_STATE; i++){
-        if (g_states[i].id == 0) {
+    for (uint32_t i = last_state_idx + 1; i < MAX_STATE; i++){
+        if (g_states[i].thread_id == 0) {
             last_state_idx = i;
             return last_state_idx;
         }
     }
-    for (uint32_t i = 0; i < last_state_idx; i++){
-        if (g_states[i].id == 0) {
+    for (uint32_t i = 1; i <= last_state_idx; i++){
+        if (g_states[i].thread_id == 0) {
             last_state_idx = i;
             return last_state_idx;
         }
@@ -185,14 +185,10 @@ gen_state_id() {
 
 static int
 l_newstate(lua_State *L) {
+	uint32_t thread_id = luaL_checkinteger(L, 1);
     uint32_t id = gen_state_id();
-	// 依次平均分配至 worker
-	last_threadid += 1;
-	if (last_threadid == MAX_THREAD) {
-		last_threadid = 2;
-	}
     g_states[id].id = id;
-    g_states[id].thread_id = last_threadid;
+    g_states[id].thread_id = thread_id;
     g_states[id].root = true;
     lua_pushinteger(L, id);
     return 1;

@@ -61,7 +61,7 @@ function wind.send(thread_id, ...)
 end
 
 function wind.send2workers(...)
-    for i = 3, 2 + wind.nworker() do
+    for i = 2, 2 + wind.nworker()-1 do
         wind.send(i, ...)
     end
 end

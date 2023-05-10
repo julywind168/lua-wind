@@ -20,30 +20,18 @@ struct _message{
 };
 
 struct _queue{
-	Message *data[LQUEUE];
 	_Atomic unsigned long long int readindex;
 	_Atomic unsigned long long int writeindex;
+	Message messages[LQUEUE];
 };
 
 
 Queue *
 q_initialize()
 {
-	Queue * q 		= malloc(sizeof(Queue)) CHECKNULL(q)
+	Queue * q 		= calloc(1, sizeof(Queue)) CHECKNULL(q)
 	q->readindex 	= 0;
 	q->writeindex 	= 0;
-	// q->count		= 0;
-
-	Message *m = NULL;
-
-	for (int i = 0; i < LQUEUE; ++i)
-	{
-		m 			 = malloc(sizeof(Message)) CHECKNULL(m)
-		m->flag 	 = EMPTY;
-		m->data 	 = NULL;
-		q->data[i] = m;
-	}
-
 	return q;
 }
 
@@ -64,7 +52,7 @@ q_push(Queue *queue, void *data)
 	index = atomic_fetch_add(&queue->writeindex, 1);
 	index = index%LQUEUE;
 	
-	Message *m = queue->data[index];
+	Message *m = queue->messages + index;
 	m->data = data;
 	m->flag = FILLED;
 
@@ -78,7 +66,7 @@ q_pop(Queue *queue)
 	// printf("readindex: %llu\n", queue->readindex);
 	int index = queue->readindex % LQUEUE;
 
-	Message *m = queue->data[index];
+	Message *m = queue->messages + index;
 
 	if (m->flag == EMPTY) {
 		return NULL;
@@ -93,8 +81,8 @@ void
 q_free(Queue *queue)
 {  
 	for (int i = 0; i < LQUEUE; ++i) {
-		if (queue->data[i]->flag == FILLED) {
-			free(queue->data[i]);
+		if (queue->messages[i].flag == FILLED && queue->messages[i].data) {
+			free(queue->messages[i].data);
 		}
 	}
 	free(queue);

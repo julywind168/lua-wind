@@ -1,94 +1,40 @@
 local core = require "wind.core"
 local serialize = require "wind.serialize"
 
+local THREAD_MAIN <const> = 0
+local THREAD_LOGGER <const> = 1
+local THREAD_ROOT <const> = 2
 
 local wind = {
-    THREAD_MAIN = 0,
-    THREAD_ROOT = 1,
     sclass = {},
     statecache = {},    -- id => {}
 }
 
--- state ---------------------------------------
-local function try(f, self, ...)
-    if f then
-        f(self, ...)
-    end
-end
-
-function wind._initstate(classname, t, ...)
-    local class = wind.sclass[classname]
-    local id = assert(t.id)
-    assert(not wind.statecache[id], string.format("state[%d] already exist", id))
-    setmetatable(t, {__index = class})
-    wind.statecache[id] = t
-    try(t._init, t, ...)
-    return t
-end
-
-
--- end
-
-function wind.nthread()
-    if not wind._nthread then
-        wind._nthread = core.nthread()
-    end
-    return wind._nthread
-end
-
-function wind.nworker()
-    return wind.nthread() - 2
-end
 
 function wind.self()
     if not wind._self then
-        local id, efd, epollfd = core.self()
-
-        local name = "main"
-        if id == 1 then
-            name = "root"
-        elseif id >= 2 then
-            name = "worker"
-        end
-
+        local id, efd = core.self()
         wind._self = {
             id = id,
-            name = name,
             efd = efd,
-            epollfd = epollfd
         }
     end
     return wind._self
 end
-
-function wind.is_main()
-    return wind.self().id == wind.THREAD_MAIN
-end
-
-
-function wind.is_root()
-    return wind.self().id == wind.THREAD_ROOT
-end
-
-
-function wind.is_worker()
-    return wind.self().id > wind.THREAD_ROOT
-end
-
 
 function wind.send(thread_id, ...)
     print("send", thread_id, ...)
     return core.send(thread_id, serialize.pack(wind.self().id, ...))
 end
 
-function wind.send2root(...)
-    wind.send(wind.THREAD_ROOT, ...)
+function wind.log(...)
+    print("call log")
+    wind.send(THREAD_LOGGER, "_log", ...)
 end
 
-function wind.send2workers(...)
-    for i = 2, 2 + wind.nworker()-1 do
-        wind.send(i, ...)
-    end
+
+function wind.error(...)
+    wind.send(THREAD_LOGGER, "_error", ...)
 end
 
 

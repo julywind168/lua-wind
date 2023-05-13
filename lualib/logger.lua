@@ -1,12 +1,7 @@
--- impl for worker thread
-
+-- impl for logger thread
 local config = require "preload"
 local eventfd = require "wind.eventfd"
 local wind = require "lualib.wind"
-
-local THREAD_MAIN <const> = 0
-local THREAD_LOGGER <const> = 1
-local THREAD_ROOT <const> = 2
 
 local M = {
     alive = true
@@ -18,24 +13,13 @@ function CMD:_exit()
     M.alive = false
 end
 
--- state ---------------------------------------
-local function try(f, self, ...)
-    if f then
-        f(self, ...)
-    end
+function CMD:_log(...)
+    print(string.format("LOG %s[%d]:", config.threadname(self), self), ...)
 end
 
-function CMD:_newstate(classname, id, t, ...)
-    local class = wind.sclass[classname]
-    assert(not wind.statecache[id], string.format("state[%d] already exist", id))
-    t._id = id
-    setmetatable(t, {__index = class})
-    wind.statecache[id] = t
-    try(t._init, t, ...)
-    return t
+function CMD:_error(...)
+    print(string.format("ERR %s[%d]:", config.threadname(self), self), ...)
 end
-
--- end
 
 
 local function handle(source, cmd, ...)
@@ -52,8 +36,6 @@ end
 
 
 function M.start()
-    wind.send(THREAD_ROOT, "_worker_initialized")
-
     local efd = wind.self().efd
     while M.alive do
         while true do

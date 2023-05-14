@@ -28,12 +28,12 @@ function wind.send(thread_id, ...)
 end
 
 function wind.log(...)
-    wind.send(THREAD_LOGGER, "_log", ...)
+    core.send(THREAD_LOGGER, serialize.pack(wind.self().id, "_log", ...))
 end
 
 
 function wind.error(...)
-    wind.send(THREAD_LOGGER, "_error", ...)
+    core.send(THREAD_LOGGER, serialize.pack(wind.self().id, "_error", ...))
 end
 
 

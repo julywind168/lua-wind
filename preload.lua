@@ -85,7 +85,11 @@ end
 
 local function t2line(t)
     if type(t) ~= "table" then
-        return tostring(t)
+        if type(t) == "string" then
+            return string.format("'%s'", t)
+        else
+            return tostring(t)
+        end
     else
         if not next(t) then
             return "{}"
@@ -117,6 +121,21 @@ end
 
 function dump(t)
     return t2line(t)
+end
+
+function table.clone( obj )
+    local function _copy( t )
+        if type(t) ~= 'table' then
+            return t
+        else
+            local tmp = {}
+            for k,v in pairs(t) do
+                tmp[k] = _copy(v)
+            end
+            return tmp
+        end
+    end
+    return _copy(obj)
 end
 
 

@@ -9,7 +9,8 @@ local THREAD_LOGGER <const> = 1
 local THREAD_ROOT <const> = 2
 
 local M = {
-    alive = true
+    alive = true,
+    statecache = {}
 }
 
 local CMD = {}
@@ -26,11 +27,11 @@ local function try(f, self, ...)
 end
 
 function CMD:_newstate(classname, id, t, ...)
-    local class = wind.sclass[classname]
-    assert(not wind.statecache[id], string.format("state[%d] already exist", id))
+    local c = wind.sclass[classname]
+    assert(not M.statecache[id], string.format("state[%d] already exist", id))
     t._id = id
-    setmetatable(t, {__index = class})
-    wind.statecache[id] = t
+    setmetatable(t, {__index = c[1]})
+    M.statecache[id] = t
     try(t._init, t, ...)
     return t
 end

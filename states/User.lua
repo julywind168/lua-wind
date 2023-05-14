@@ -1,3 +1,4 @@
+local wind = require "lualib.wind"
 local util = require "lualib.util"
 
 local Struct = {

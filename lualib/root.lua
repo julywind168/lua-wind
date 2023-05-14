@@ -65,26 +65,26 @@ M.worker_alloter = turn_worker_alloter()
 M.stateid_alloter = sample_stateid_alloter()
 
 -- thread_id sould been worker
-function M.newstate(classname, t, ...)
+function M.newstate(classname, t, thread_id, ...)
     local c = assert(wind.sclass[classname], "not found preload class:"..tostring(classname))
     local struct = c[2]
     assert(t)
     -- check t struct
     if struct then
-        for k,v pairs(struct) do
+        for k,v in pairs(struct) do
             if type(v) == "function" then
                 v(t[k])
             else
                 if t[k] == nil then
                     t[k] = table.clone(v)
                 else
-                    assert(type(v) == type(t[k]), string.formate("invalid struct key:%s, want:%s, get:%s", k, type(v), type(t[k])))
+                    assert(type(v) == type(t[k]), string.format("invalid struct key:%s, want:%s, get:%s", k, type(v), type(t[k])))
                 end
             end
         end
     end
 
-    local worker = M.worker_alloter()
+    local worker = thread_id or M.worker_alloter()
     local id = M.stateid_alloter()
 
     M.statecache[id] = worker

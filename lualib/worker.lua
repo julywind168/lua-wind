@@ -50,6 +50,12 @@ local function handle(source, cmd, ...)
     end
 end
 
+-- send ---- data ----> root -- data --> new_worker
+-- move 之后 可能还会有相关的call, 转发给root 即可
+function M.move(id, worker)
+
+end
+
 
 function M.start()
     wind.send(THREAD_ROOT, "_worker_initialized")

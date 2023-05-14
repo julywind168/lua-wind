@@ -28,7 +28,6 @@ function wind.send(thread_id, ...)
 end
 
 function wind.log(...)
-    print("call log")
     wind.send(THREAD_LOGGER, "_log", ...)
 end
 

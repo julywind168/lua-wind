@@ -9,7 +9,8 @@ local THREAD_LOGGER <const> = 1
 local THREAD_ROOT <const> = 2
 
 local M = {
-    alive = true
+    alive = true,
+    statecache = {},        -- id => worker (thread_id)
 }
 
 local CMD = {}
@@ -40,44 +41,68 @@ end
 
 
 local function turn_worker_alloter()
-    local id = 1
+    local start, num = config.querythread("worker")
+    local id = start - 1
+
     return function ()
         id = id + 1
-        if id > config.nthread - 1 then
-            id = 2
+        if id > start + num - 1 then
+            id = start
         end
         return id
     end
 end
 
+local function sample_stateid_alloter()
+    local id = 0
+    return function()
+        id = id + 1
+        return id
+    end
+end
+
 M.worker_alloter = turn_worker_alloter()
+M.stateid_alloter = sample_stateid_alloter()
 
--- thread_id sould been root or worker
--- function M._newstate(classname, t, thread_id, ...)
---     assert(wind.sclass[classname], "not found preload class:"..tostring(classname))
---     assert(t, "newstate need a pure data table")
---     assert(not t.id, "state.id is reserved, it will been gen by framework")
+-- thread_id sould been worker
+function M.newstate(classname, t, ...)
+    local c = assert(wind.sclass[classname], "not found preload class:"..tostring(classname))
+    local struct = c[2]
+    assert(t)
+    -- check t struct
+    if struct then
+        for k,v pairs(struct) do
+            if type(v) == "function" then
+                v(t[k])
+            else
+                if t[k] == nil then
+                    t[k] = table.clone(v)
+                else
+                    assert(type(v) == type(t[k]), string.formate("invalid struct key:%s, want:%s, get:%s", k, type(v), type(t[k])))
+                end
+            end
+        end
+    end
 
---     thread_id = thread_id or M.worker_alloter()
---     assert(thread_id > 0 and thread_id < config.nthread)
---     local id = root.newstate(thread_id)
---     t.id = id
+    local worker = M.worker_alloter()
+    local id = M.stateid_alloter()
 
---     if thread_id == wind.THREAD_ROOT then
---         return wind._initstate(classname, t, ...)
---     else
---         wind.send(thread_id, "_newstate", classname, t, ...)
---     end
--- end
+    M.statecache[id] = worker
 
--- 根据 worker_alloter 分配
--- function M.newstate(classname, t, ...)
---     return M._newstate(classname, t, nil, ...)
--- end
+    wind.send(worker, "_newstate", classname, id, t, ...)
+end
 
--- function M.newstate2self(classname, t, ...)
---     return M._newstate(classname, t, wind.THREAD_ROOT, ...)
--- end
+-- send --> old_worker ---- data ----> root  -- data --> new_worker
+-- send 后 可以选择创建一个queue 将后续相关call缓存起来, 避免无效投递
+function M.movestate(id, worker)
+    local old_worker = assert(M.statecache[id], "not found state: " ..tostring(id))
+    wind.send()
+end
+
+function M.callstate(stateid, ...)
+
+end
+
 
 function M.send2workers(...)
     local id, num = config.querythread('worker')

@@ -12,12 +12,16 @@ local Struct = {
 local User = {}
 
 function User:_init(...)
-    print("User._init", dump(self), ...)
+    wind.log("User._init", dump(self), ...)
 end
 
 function User:login()
     self.loginc = self.loginc + 1
     return self
+end
+
+function User:print()
+    wind.log("User.print =============", dump(self) )
 end
 
 

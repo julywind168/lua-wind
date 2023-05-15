@@ -37,7 +37,7 @@ A multithreading framework written for lua
 ## State 特性
 ```
     定义:
-        state 是一个可序列化的 lua table (不能包含函数, userdata)，它可以附带一个元表(sclass) 来处理调用
+        state 是一个可序列化的 lua table (不能包含函数, userdata)，它可以附带一个元表(stateclass) 来处理调用
         state 可以嵌套
         state 只能处于 woker thread
     所有权:

@@ -27,13 +27,19 @@ local function try(f, self, ...)
 end
 
 function CMD:_newstate(classname, id, t, ...)
-    local c = wind.sclass[classname]
+    local c = wind.stateclass[classname]
     assert(not M.statecache[id], string.format("state[%d] already exist", id))
     t._id = id
     setmetatable(t, {__index = c[1]})
     M.statecache[id] = t
     try(t._init, t, ...)
     return t
+end
+
+function CMD:_callstate(id, name, ...)
+    local s = M.statecache[id]
+    local f = s[name]
+    f(s, ...)
 end
 
 -- end
@@ -59,6 +65,7 @@ end
 
 
 function M.start()
+    wind.log("start")
     wind.send(THREAD_ROOT, "_worker_initialized")
 
     local efd = wind.self().efd
@@ -72,6 +79,8 @@ function M.start()
             eventfd.read(efd)
         end
     end
+    wind.log("exit")
+    wind.send(THREAD_LOGGER, "_thread_exited")
 end
 
 

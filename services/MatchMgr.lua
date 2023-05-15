@@ -10,8 +10,9 @@ local struct = {
 local MatchMgr = {}
 
 
-function MatchMgr:_init()
+function MatchMgr:init()
     wind.log("Service match_mgr init ====================================")
+    return self
 end
 
 

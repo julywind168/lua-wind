@@ -40,19 +40,36 @@ function config.threadname(id)
 end
 
 
--- load class
+
+
+
 local state_classes = {
     "User"
 }
 
-for _, name in ipairs(state_classes) do
-    wind.sclass[name] = require(string.format("states.%s", name))
+local service_classes = {
+    "UserMgr",
+    "MatchMgr"
+}
+
+local self = wind.self()
+
+if config.threadname(self.id) == "root" then
+    for _, name in ipairs(service_classes) do
+        wind.serviceclass[name] = require(string.format("services.%s", name))
+    end
+end
+
+-- exclude main and logger
+if self.id > 1 then
+    for _, name in ipairs(state_classes) do
+        wind.stateclass[name] = require(string.format("states.%s", name))
+    end
 end
 
 
-
 -- hook print (only for debug, other please use wind.log)
-local self = wind.self()
+
 
 if config.threadname(self.id) ~= "logger" then
     local _print = print

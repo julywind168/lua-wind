@@ -6,5 +6,5 @@ local worker = require "lualib.worker"
 
 
 
-print("start")
+
 worker.start()

@@ -11,6 +11,7 @@ local THREAD_ROOT <const> = 2
 local M = {
     alive = true,
     statecache = {},        -- id => worker (thread_id)
+    service = {},           -- name => service
 }
 
 local CMD = {}
@@ -66,7 +67,7 @@ M.stateid_alloter = sample_stateid_alloter()
 
 -- thread_id sould been worker
 function M.newstate(classname, t, thread_id, ...)
-    local c = assert(wind.sclass[classname], "not found preload class:"..tostring(classname))
+    local c = assert(wind.stateclass[classname], "not found preload class:"..tostring(classname))
     local struct = c[2]
     assert(t)
     -- check t struct
@@ -90,7 +91,32 @@ function M.newstate(classname, t, thread_id, ...)
     M.statecache[id] = worker
 
     wind.send(worker, "_newstate", classname, id, t, ...)
+    return id
 end
+
+function M.uniqueservice(name, t)
+    if M.service[name] then
+        return M.service[name]
+    end
+    local c = assert(wind.serviceclass[name], "not found preload service class:"..tostring(name))
+    local struct = assert(c[2])
+    t = t or {}
+    -- check struct
+    for k,v in pairs(struct) do
+        if type(v) == "function" then
+            v(t[k])
+        else
+            if t[k] == nil then
+                t[k] = table.clone(v)
+            else
+                assert(type(v) == type(t[k]), string.format("invalid struct key:%s, want:%s, get:%s", k, type(v), type(t[k])))
+            end
+        end
+    end
+    M.service[name] = t
+    return setmetatable(t, {__index = c[1]})
+end
+
 
 -- send --> old_worker ---- data ----> root  -- data --> new_worker
 -- send 后 可以选择创建一个queue 将后续相关call缓存起来, 避免无效投递
@@ -99,8 +125,9 @@ function M.movestate(id, worker)
     wind.send()
 end
 
-function M.callstate(stateid, ...)
-
+function M.callstate(id, ...)
+    local worker = assert(M.statecache[id], "not found state: " ..tostring(id))
+    wind.send(worker, "_callstate", id, ...)
 end
 
 
@@ -119,14 +146,20 @@ function M.send2other(...)
     end
 end
 
-
+-- 1. exit workers && root
+-- 2. exit logger
 function M.exit()
-    M.send2other("_exit")
+    for _, t in ipairs(config.threads) do
+        if t.id > THREAD_ROOT then
+            wind.send(t.id, "_exit")
+        end
+    end
     M.alive = false
 end
 
 
 function M.start(init)
+    wind.log("start")
     M._init = init
 
     local efd = wind.self().efd
@@ -140,6 +173,8 @@ function M.start(init)
             eventfd.read(efd)
         end
     end
+    wind.log("exit")
+    wind.send(THREAD_LOGGER, "_thread_exited")
 end
 
 

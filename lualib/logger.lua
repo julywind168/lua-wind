@@ -9,16 +9,34 @@ local M = {
 
 local CMD = {}
 
-function CMD:_exit()
-    M.alive = false
+local exited = 0
+
+function CMD:_thread_exited()
+    exited = exited + 1
+    if exited == config.countthread("root") + config.countthread("worker") then
+        M.alive = false
+    end
 end
 
+local function _log(id, ...)
+    print(string.format("LOG %s[%d]:", config.threadname(id), id), ...)
+end
+
+local function _error(id, ...)
+    print(string.format("ERR %s[%d]:", config.threadname(id), id), ...)
+end
+
+
 function CMD:_log(...)
-    print(string.format("LOG %s[%d]:", config.threadname(self), self), ...)
+    _log(self, ...)
 end
 
 function CMD:_error(...)
-    print(string.format("ERR %s[%d]:", config.threadname(self), self), ...)
+    _error(self, ...)
+end
+
+function M.log(...)
+    _log(wind.self().id, ...)
 end
 
 
@@ -36,6 +54,7 @@ end
 
 
 function M.start()
+    M.log("start")
     local efd = wind.self().efd
     while M.alive do
         while true do
@@ -47,6 +66,7 @@ function M.start()
             eventfd.read(efd)
         end
     end
+    M.log("exit")
 end
 
 

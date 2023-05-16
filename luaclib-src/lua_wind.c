@@ -7,6 +7,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdatomic.h>
+#include <sys/time.h>
 
 #include "lua_util.h"
 #include "lua_wind.h"
@@ -150,6 +151,15 @@ l_nthread(lua_State *L) {
 	return 1;
 }
 
+static int
+l_time(lua_State *L)
+{   
+    struct timeval start;
+    gettimeofday( &start, NULL );
+    lua_pushinteger(L, 1000*start.tv_sec + start.tv_usec/1000);
+    return 1;  /* number of results */
+}
+
 int
 lua_lib_wind_core(lua_State* L) {
 	static const struct luaL_Reg l[] = {
@@ -157,6 +167,7 @@ lua_lib_wind_core(lua_State* L) {
 		{"send", l_send},
 		{"self", l_self},
 		{"nthread", l_nthread},
+		{"time", l_time},
 		{NULL, NULL}
 	};
     luaL_newlib(L, l);

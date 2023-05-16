@@ -23,7 +23,7 @@ function wind.self()
 end
 
 function wind.send(thread_id, ...)
-    wind.log("send", thread_id, ...)
+    -- wind.log("send", thread_id, ...)
     return core.send(thread_id, serialize.pack(wind.self().id, ...))
 end
 
@@ -43,6 +43,8 @@ function wind.recv()
         return serialize.unpack(data)
     end
 end
+
+wind.time = core.time
 
 
 return wind

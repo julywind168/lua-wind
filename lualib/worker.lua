@@ -42,6 +42,11 @@ function CMD:_callstate(id, name, ...)
     f(s, ...)
 end
 
+function CMD:_ping()
+    -- wind.log("PING ==================", self)
+    wind.send(self, "_pong")
+end
+
 -- end
 
 

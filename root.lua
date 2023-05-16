@@ -1,7 +1,9 @@
 local wind = require "lualib.wind"
 local root = require "lualib.root"
 
-
+local function benchmark()
+    wind.send(3, "_ping")
+end
 
 
 root.start(function ()
@@ -20,5 +22,6 @@ root.start(function ()
 
     root.callstate(windy, "print")
 
-    root.exit()
+    benchmark()
+    -- root.exit()
 end)

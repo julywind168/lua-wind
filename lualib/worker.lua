@@ -64,8 +64,13 @@ end
 
 -- send ---- data ----> root -- data --> new_worker
 -- move 之后 可能还会有相关的call, 转发给root 即可
-function M.move(id, worker)
+function wind.move(id, worker)
 
+end
+
+-- call service
+function wind.call(name, ...)
+    wind.send(THREAD_ROOT, "_callservice", name, ...)
 end
 
 

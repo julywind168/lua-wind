@@ -27,27 +27,18 @@ function CMD:_worker_initialized()
     end
 end
 
+function CMD:_callservice(name, key, ...)
+    local s = M.service[name]
+    if s then
+        local f = s[key]
+        f(s, ...)
+    else
+        wind.log("not found service", name)
+    end
+end
 
 function CMD:_ping()
     wind.send(self, "_pong")
-end
-
-local count = 0
-local t1, t2
-function CMD:_pong()
-    -- wind.log("PONG =====================", self)
-    count = count + 1
-    if count == 1 then
-        t1 = wind.time()
-    end
-
-    if count == 10*10000 then
-        t2 = wind.time()
-        print(string.format("benchmark ping-pong %d times, use time:%dms", count, t2-t1))
-        M.exit()
-    else
-        wind.send(self, "_ping")
-    end
 end
 
 local function handle(source, cmd, ...)
@@ -142,12 +133,13 @@ end
 
 -- send --> old_worker ---- data ----> root  -- data --> new_worker
 -- send 后 可以选择创建一个queue 将后续相关call缓存起来, 避免无效投递
-function M.movestate(id, worker)
-    local old_worker = assert(M.statecache[id], "not found state: " ..tostring(id))
-    wind.send()
+function wind.move(id, worker)
+    -- local old_worker = assert(M.statecache[id], "not found state: " ..tostring(id))
+    -- wind.send()
 end
 
-function M.callstate(id, ...)
+-- call state
+function wind.call(id, ...)
     local worker = assert(M.statecache[id], "not found state: " ..tostring(id))
     wind.send(worker, "_callstate", id, ...)
 end
@@ -178,6 +170,8 @@ function M.exit()
     end
     M.alive = false
 end
+
+wind.exit = M.exit
 
 
 function M.start(init)

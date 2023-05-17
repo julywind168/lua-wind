@@ -44,12 +44,14 @@ end
 
 
 local state_classes = {
-    "User"
+    "Benchmark",
+    "User",
 }
 
 local service_classes = {
+    "Benchmark",
     "UserMgr",
-    "MatchMgr"
+    "MatchMgr",
 }
 
 local self = wind.self()

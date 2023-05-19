@@ -21,11 +21,14 @@ function MatchMgr:_tick_1000()
 end
 
 
-function MatchMgr:join(p)
+function MatchMgr:start_match(p)
     if not self.matching[p.id] then
         self.matching[p.id] = p
     end
     table.insert(self.queue, p)
+    if #self.queue == 2 then
+        wind.newstate("Room", {id = "10001"}, nil, self.queue)
+    end
 end
 
 

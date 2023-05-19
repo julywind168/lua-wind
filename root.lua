@@ -16,10 +16,13 @@ root.start(function ()
 
 
 
-    local windy = root.newstate("User", {id = "1001", nick = "windy", gold = 0}, nil, "your_init_params_1")
-    local jack = root.newstate("User", {id = "1002", nick = "jack", gold = 200}, nil, "your_init_params_2")
+    local windy = wind.newstate("User", {id = "1001", nick = "windy", gold = 0}, nil, "your_init_params_1")
+    local jack = wind.newstate("User", {id = "1002", nick = "jack", gold = 200}, nil, "your_init_params_2")
+
 
     wind.call(windy, "print")
 
-    benchmark:start(root.newstate("Benchmark", {}), 10*10000)
+
+    -- benchmark:start(root.newstate("Benchmark", {}), 10*10000)
+    -- wind.exit()
 end)

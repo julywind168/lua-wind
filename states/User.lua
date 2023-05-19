@@ -13,6 +13,11 @@ local User = {}
 
 function User:_init(...)
     wind.log("User._init", dump(self), ...)
+    wind.call("MatchMgr", "start_match", {_id = self._id, id = self.id})
+end
+
+function User:_moved(from)
+    wind.log("User._moved ===============", from)
 end
 
 function User:login()

@@ -37,6 +37,26 @@ function CMD:_callservice(name, key, ...)
     end
 end
 
+function CMD:_newstate(...)
+    wind.newstate(...)
+end
+
+function CMD:_movestate(id, data, new_worker, old_worker, parent)
+    assert(M.statecache[id] == old_worker)
+    wind.log("MOVE ==============", id, old_worker, new_worker, parent)
+
+    if parent then
+        new_worker = M.statecache[parent]
+    end
+    wind.send(new_worker, "_state_moved", id, data, old_worker, parent)
+    
+    M.statecache[id] = new_worker
+end
+
+function CMD:_call_movestate(...)
+    wind.move(...)
+end
+
 function CMD:_ping()
     wind.send(self, "_pong")
 end
@@ -79,7 +99,7 @@ M.worker_alloter = turn_worker_alloter()
 M.stateid_alloter = sample_stateid_alloter()
 
 -- thread_id sould been worker
-function M.newstate(classname, t, thread_id, ...)
+function wind.newstate(classname, t, thread_id, ...)
     local c = assert(wind.stateclass[classname], "not found preload class:"..tostring(classname))
     local struct = c[2]
     assert(t)
@@ -133,9 +153,14 @@ end
 
 -- send --> old_worker ---- data ----> root  -- data --> new_worker
 -- send 后 可以选择创建一个queue 将后续相关call缓存起来, 避免无效投递
-function wind.move(id, worker)
-    -- local old_worker = assert(M.statecache[id], "not found state: " ..tostring(id))
-    -- wind.send()
+function wind.move(id, worker, parent)
+    local old_worker = assert(M.statecache[id], "not found state: " ..tostring(id))
+    wind.send(old_worker, "_movestate", id, worker, parent)
+end
+
+function wind.moveto(id, parent)
+    local new_worker = assert(M.statecache[parent], "not found state: " ..tostring(parent))
+    wind.move(id, new_worker, parent)
 end
 
 -- call state

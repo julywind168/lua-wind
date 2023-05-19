@@ -46,6 +46,7 @@ end
 local state_classes = {
     "Benchmark",
     "User",
+    "Room"
 }
 
 local service_classes = {

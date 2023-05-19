@@ -34,6 +34,7 @@ function CMD:_newstate(classname, id, t, ...)
     -- init
     t._id = id
     t._classname = classname
+    t._sub = {}
     t._parent = nil
     t._children = {}
     setmetatable(t, {__index = c[1]})
@@ -54,6 +55,15 @@ end
 
 function CMD:_movestate(id, new_worker, parent)
     wind.move(id, new_worker, parent)
+end
+
+function CMD:_newevent(name, ...)
+    for _, state in pairs(M.statecache) do
+        if state._sub[name] then
+            local f = assert(state[name], name)
+            f(state, ...)
+        end
+    end
 end
 
 

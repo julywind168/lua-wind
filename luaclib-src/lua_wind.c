@@ -20,7 +20,8 @@
 #include "queue.h"
 
 #define THREAD_MAIN 0
-#define THREAD_ROOT 1
+#define THREAD_LOGGER 1
+#define THREAD_ROOT 2
 
 #define MAX_STATE 1024
 
@@ -137,7 +138,7 @@ l_send(lua_State *L) {
 	}
 	if (q_push(to->queue, data)) {
 		// write eventfd to root or worker, to wake up thread
-		if (to->id >= THREAD_ROOT) {
+		if (to->id >= THREAD_LOGGER) {
 			uint64_t increment = 1;
 			write(to->efd, &increment, sizeof(increment));
 		}

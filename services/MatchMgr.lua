@@ -12,12 +12,14 @@ local MatchMgr = {}
 
 function MatchMgr:init()
     wind.log("Service match_mgr init ====================================")
+    self._sub._tick_1000 = true
     return self
 end
 
 
 function MatchMgr:_tick_1000()
     -- todo match
+    wind.log("MatchMgr tick ===========================", wind.time())
 end
 
 

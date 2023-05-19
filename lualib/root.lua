@@ -1,6 +1,8 @@
 -- impl for root thread
 
 local config = require "preload"
+local epoll = require "wind.epoll"
+local timerfd = require "wind.timerfd"
 local eventfd = require "wind.eventfd"
 local wind = require "lualib.wind"
 
@@ -59,6 +61,15 @@ end
 
 function CMD:_ping()
     wind.send(self, "_pong")
+end
+
+function CMD:_newevent(name, ...)
+    for _, service in pairs(M.service) do
+        if service._sub[name] then
+            local f = assert(service[name], name)
+            f(service, ...)
+        end
+    end
 end
 
 local function handle(source, cmd, ...)
@@ -134,6 +145,10 @@ function M.uniqueservice(name, t)
     local c = assert(wind.serviceclass[name], "not found preload service class:"..tostring(name))
     local struct = assert(c[2])
     t = t or {}
+
+    -- init
+    t._name = name
+    t._sub = {}        -- {event = true}
     -- check struct
     for k,v in pairs(struct) do
         if type(v) == "function" then
@@ -185,6 +200,12 @@ function M.send2other(...)
     end
 end
 
+-- dispatch event to all service/state
+function M.pub(name, ...)
+    CMD._newevent(wind.self().id, name, ...)
+    M.send2workers("_newevent", name, ...)
+end
+
 -- 1. exit workers && root
 -- 2. exit logger
 function M.exit()
@@ -203,15 +224,26 @@ function M.start(init)
     wind.log("start")
     M._init = init
 
+    local epfd = assert(epoll.create())
+    local tfd = timerfd.create()
+    timerfd.settime(tfd, 1000)
     local efd = wind.self().efd
+    epoll.register(epfd, efd, epoll.EPOLLIN | epoll.EPOLLET)
+    epoll.register(epfd, tfd, epoll.EPOLLIN | epoll.EPOLLET)
+
     while M.alive do
-        while true do
-            if handle(wind.recv()) then
-                break
+        local events = epoll.wait(epfd, -1, 512)
+        for fd, event in pairs(events) do
+            if fd == efd then
+                while true do
+                    if handle(wind.recv()) then
+                        break
+                    end
+                end
+            elseif fd == tfd then
+                timerfd.read(fd)
+                M.pub("_tick_1000")
             end
-        end
-        if M.alive then
-            eventfd.read(efd)
         end
     end
     wind.log("exit")

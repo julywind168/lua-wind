@@ -1,4 +1,4 @@
-local wind = require "lualib.wind"
+require "preload"
 local worker = require "lualib.worker"
 
 

@@ -1,11 +1,12 @@
-local config = require "preload"
+require "preload"
+local config = require "config"
 local main = require "wind.main"
 
 
 print('hello world')
 
-for _, thread in ipairs(config.threads) do
-    main.fork(thread.filename)
+for i = 1, config.nworker do
+    main.fork("worker.lua")
 end
 
 

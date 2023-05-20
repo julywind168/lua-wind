@@ -1,6 +1,6 @@
 local util = {}
 
--- for check State/Service struct
+-- for check service struct
 function util.required(valuetype)
     return function(value)
         if type(value) ~= valuetype then

@@ -34,14 +34,10 @@ struct State {
 int
 lua_lib_wind_main(lua_State* L);
 
-int
-lua_lib_wind_root(lua_State* L);
 
 int
 lua_lib_wind_core(lua_State* L);
 
-int
-lua_lib_wind_state(lua_State* L);
 
 
 

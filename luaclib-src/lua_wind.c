@@ -20,77 +20,17 @@
 #include "queue.h"
 
 #define THREAD_MAIN 0
-#define THREAD_LOGGER 1
-#define THREAD_ROOT 2
 
-#define MAX_STATE 1024
 
 #define MAX_WORKER 128
-#define MAX_THREAD (MAX_WORKER+2)
+#define MAX_THREAD (MAX_WORKER+1)
 
 // 0 is main
-// 1 is root
-// 2+ is worker
+// other is worker
 static struct Proc g_processes[MAX_THREAD] = {0};
 static int last_proc_idx = 0;
 
-// state
-static struct State g_states[MAX_STATE] = {0};
-static uint32_t last_state_idx = 0;
 
-/////////////////////////////////// wind.state ///////////////////////////////////
-static struct State*
-quey_state(lua_State *L){
-    uint32_t id = luaL_checkinteger(L, 1);
-    return g_states + id;
-}
-
-
-static int
-l_infostate(lua_State *L) {
-    struct State *state = quey_state(L);
-    lua_pushinteger(L, state->id);
-    lua_pushinteger(L, state->thread_id);
-    lua_pushboolean(L, state->root);
-    return 3;
-}
-
-static int
-l_set_state_root(lua_State *L) {
-    struct State *state = quey_state(L);
-    bool root = lua_toboolean(L, 2);
-    state->root = root;
-    return 0;
-}
-
-static int
-l_set_state_threadid(lua_State *L) {
-    struct State *state = quey_state(L);
-    state-> thread_id = lua_tointeger(L, 2);
-    return 0;
-}
-
-static int
-l_freestate(lua_State *L) {
-    struct State *state = quey_state(L);
-    state->id = 0;
-    state->thread_id = 0;
-    state->root = false;
-    return 0;
-}
-
-int
-lua_lib_wind_state(lua_State* L) {
-	static const struct luaL_Reg l[] = {
-        { "info", l_infostate },
-        { "set_root", l_set_state_root },
-        { "set_threadid", l_set_state_threadid },
-        { "free", l_freestate },
-		{NULL, NULL}
-	};
-    luaL_newlib(L, l);
-    return 1;
-}
 /////////////////////////////////// wind.core ///////////////////////////////////
 static struct Proc *
 getself(lua_State *L) {
@@ -138,8 +78,8 @@ l_send(lua_State *L) {
 	}
 	if (q_push(to->queue, data)) {
 		// write eventfd to root or worker, to wake up thread
-		if (to->id >= THREAD_LOGGER) {
-			uint64_t increment = 1;
+		if (to->id > THREAD_MAIN) {
+			static uint64_t increment = 1;
 			write(to->efd, &increment, sizeof(increment));
 		}
 	}
@@ -174,47 +114,7 @@ lua_lib_wind_core(lua_State* L) {
     luaL_newlib(L, l);
     return 1;
 }
-/////////////////////////////////// wind.root ///////////////////////////////////
 
-// 0 号 state 暂时保留
-static uint32_t
-gen_state_id() {
-    for (uint32_t i = last_state_idx + 1; i < MAX_STATE; i++){
-        if (g_states[i].thread_id == 0) {
-            last_state_idx = i;
-            return last_state_idx;
-        }
-    }
-    for (uint32_t i = 1; i <= last_state_idx; i++){
-        if (g_states[i].thread_id == 0) {
-            last_state_idx = i;
-            return last_state_idx;
-        }
-    }
-    fprintf(stderr, "can not gen state id\n");
-    exit(1);
-}
-
-static int
-l_newstate(lua_State *L) {
-	uint32_t thread_id = luaL_checkinteger(L, 1);
-    uint32_t id = gen_state_id();
-    g_states[id].id = id;
-    g_states[id].thread_id = thread_id;
-    g_states[id].root = true;
-    lua_pushinteger(L, id);
-    return 1;
-}
-
-int
-lua_lib_wind_root(lua_State* L) {
-	static const struct luaL_Reg l[] = {
-		{"newstate", l_newstate},
-		{NULL, NULL}
-	};
-    luaL_newlib(L, l);
-    return 1;
-}
 /////////////////////////////////// wind.main ///////////////////////////////////
 static void * ll_thread(void *arg) {
 	struct Proc *self = (struct Proc *)arg;
@@ -222,34 +122,23 @@ static void * ll_thread(void *arg) {
 
 	// open libs
 	luaL_openlibs(L);
-	if (self->id == THREAD_ROOT) {
-		luaL_requiref(L, "wind.root", lua_lib_wind_root, 0);
-		lua_pop(L, 1);
-		luaL_requiref(L, "wind.epoll", lua_lib_epoll, 0);
-		lua_pop(L, 1);
-		luaL_requiref(L, "wind.timerfd", lua_lib_timerfd, 0);
-		lua_pop(L, 1);
-		luaL_requiref(L, "wind.socket", lua_lib_socket, 0);
-		lua_pop(L, 1);
-	}
-	luaL_requiref(L, "wind.core", lua_lib_wind_core, 0);
+	luaL_requiref(L, "wind.epoll", lua_lib_epoll, 0);
 	lua_pop(L, 1);
-	luaL_requiref(L, "wind.state", lua_lib_wind_state, 0);
+	luaL_requiref(L, "wind.timerfd", lua_lib_timerfd, 0);
 	lua_pop(L, 1);
 	luaL_requiref(L, "wind.eventfd", lua_lib_eventfd, 0);
 	lua_pop(L, 1);
+	luaL_requiref(L, "wind.socket", lua_lib_socket, 0);
+	lua_pop(L, 1);
 	luaL_requiref(L, "wind.serialize", lua_lib_serialize, 0);
 	lua_pop(L, 1);
-	luaL_requiref(L, "wind.util", lua_lib_util, 0);
+	luaL_requiref(L, "wind.core", lua_lib_wind_core, 0);
 	lua_pop(L, 1);
 	// end
 
 	if (lua_pcall(L,0, 0, 0) != 0) 
 		fprintf(stderr, "thread[%d] error: %s\n", self->id, lua_tostring(L, -1));
 
-	close(self->efd);
-	lua_close(L);
-	q_free(self->queue);
 	return NULL;
 }
 
@@ -272,7 +161,7 @@ l_fork(lua_State *L) {
 
 	self->id      = id;
 	self->L       = L1;
-	self->thread  = 0;
+	self->thread  = -1;
 	self->queue   = q_initialize();
 	self->efd 	  = eventfd(0, 0);
 
@@ -305,6 +194,14 @@ l_join_threads(lua_State *L) {
 			exit(-1);
 		}
 	}
+
+	// clean worker
+	for (int i = 1; i < last_proc_idx; i++) {
+		close(g_processes[i].efd);
+		lua_close(g_processes[i].L);
+		q_free(g_processes[i].queue);
+	}
+
 	// clean main
 	q_free(g_processes->queue);
 	return 0;

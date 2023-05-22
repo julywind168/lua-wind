@@ -12,8 +12,8 @@ end
 
 
 
--- let worker1 run main service
-wind.send(1, "uniqueservice", "main")
+-- let worker 1 run main service
+wind.uniqueservice(1, "main")
 
 
 main.join_threads()

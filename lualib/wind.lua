@@ -1,6 +1,6 @@
 local core = require "wind.core"
 local serialize = require "wind.serialize"
-
+local config = require "config"
 
 local wind = {
     serviceclass = {}
@@ -20,6 +20,16 @@ end
 
 function wind.send(thread_id, ...)
     return core.send(thread_id, serialize.pack(...))
+end
+
+-- for main thread
+function wind.uniqueservice(worker, name, ...)
+    wind.send(worker, "uniqueservice", name, ...)
+    for i = 1, config.nworker do
+        if i ~= worker then
+            wind.send(i, "uniqueservice_created", name, worker)
+        end
+    end
 end
 
 

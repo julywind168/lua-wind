@@ -1,10 +1,2 @@
 require "preload"
-local worker = require "lualib.worker"
-
-
-
-
-
-
-
-worker.start()
+require "lualib.worker" .start()

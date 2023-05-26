@@ -13,7 +13,7 @@ end
 
 
 -- let worker 1 run main service
-wind.uniqueservice(1, "main")
+wind.newservice(1, "main")
 
 
 main.join_threads()

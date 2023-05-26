@@ -15,20 +15,24 @@ function Main:_init()
     print("Main start =====================")
 
     -- logger
-    wind.uniqueservice(1, "logger")
-    wind.call("logger", "log", wind.self().id, "hello world", {a = 1, b = "ccccccc"})
+    wind.newservice(1, "logger")
+    wind.log("test log", {a = 1, b = "ccccccc"})
 
     -- test tick
     self.count = 0
     self._sub._tick_1000 = true         -- sub `_tick_1000` event
 
-    -- benchmark run in worker 2
-    wind.uniqueservice(2, "benchmark")
-    wind.call("benchmark", "start", 10*10000)
-
     -- local
-    wind.uniqueservice(wind.self().id, "root")
+    wind.newservice(wind.self().id, "root")
     self:test_root_hello()
+
+    -- multiple service
+    wind.newservice(1, "user_1", "user")
+    wind.newservice(2, "user_2", "user")
+
+    -- benchmark run in worker 2
+    wind.newservice(2, "benchmark")
+    wind.call("benchmark", "start", 10*10000)
 end
 
 function Main:ping(from)
@@ -37,17 +41,16 @@ end
 
 function Main:test_root_hello()
     local root = wind.querylocal("root")
-    print("Main:", root:hello("W", "O", "R", "L", "D"))
+    wind.log("Main:", root:hello("W", "O", "R", "L", "D"))
 
     -- try query a not local service
     -- wind.querylocal("benchmark")
-
 end
 
 function Main:_tick_1000()
     self.count = self.count + 1
     if self.count%5 == 0 then
-        print("Main Tick", self.count)
+        wind.log("Main Tick", self.count)
     end
 end
 

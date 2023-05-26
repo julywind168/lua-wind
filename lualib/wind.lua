@@ -23,11 +23,11 @@ function wind.send(thread_id, ...)
 end
 
 -- for main thread
-function wind.uniqueservice(worker, name, ...)
-    wind.send(worker, "uniqueservice", name, ...)
+function wind.newservice(worker, name, ...)
+    wind.send(worker, "newservice", name, ...)
     for i = 1, config.nworker do
         if i ~= worker then
-            wind.send(i, "uniqueservice_created", name, worker)
+            wind.send(i, "service_created", name, worker)
         end
     end
 end

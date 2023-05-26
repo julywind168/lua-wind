@@ -14,13 +14,13 @@ local M = {
 
 local CMD = {}
 
-function CMD.uniqueservice_created(name, worker)
-    -- print(wind.self().id, "uniqueservice_created", name, worker)
+function CMD.service_created(name, worker)
+    -- print(wind.self().id, "service_created", name, worker)
     M.service_worker[name] = worker
 end
 
-function CMD.uniqueservice(name, ...)
-    M._uniqueservice(name, ...)
+function CMD.newservice(name, ...)
+    M._newservice(name, ...)
 end
 
 function CMD.callservice(...)
@@ -68,22 +68,25 @@ function M._send2other(...)
 end
 
 
-function M._uniqueservice(name, s, ...)
+function M._newservice(name, classname, s)
     if M.service[name] then
         return M.service[name]
     end
-    local mt = require(string.format("service.unique.%s", name))
+    if type(classname) ~= "string" then
+        classname = name
+    end
+    local mt = require(string.format("service.%s", classname))
     local service = s or {}
 
     service._name = name
+    service._class = classname
     service._sub = service._sub or {}
 
     setmetatable(service, {__index = mt})
-    try(service._init, service, ...)
+    try(service._init, service)
 
     M.service[name] = service
     M.service_worker[name] = wind.self().id
-    -- M._send2other("uniqueservice_initialized", name, wind.self().id)
     return service
 end
 
@@ -94,19 +97,21 @@ function M._callservice(service_name, name, ...)
 end
 
 -- attach wind api
-function wind.uniqueservice(worker, name, ...)
+function wind.newservice(worker, name, ...)
+    local service
     if worker == wind.self().id then
-        return M._uniqueservice(name, ...)
+        service = M._newservice(name, ...)
     else
-        wind.send(worker, "uniqueservice", name, ...)
+        wind.send(worker, "newservice", name, ...)
     end
     M.service_worker[name] = worker
 
     for i = 1, config.nworker do
         if i ~= wind.self().id and i ~= worker then
-            wind.send(i, "uniqueservice_created", name, worker)
+            wind.send(i, "service_created", name, worker)
         end
     end
+    return service
 end
 
 function wind.call(name, ...)
@@ -120,6 +125,7 @@ function wind.call(name, ...)
         wind.send(worker, "callservice", name, ...)
         return true
     else
+        error(string.format("not found service[%s]", name))
         return false
     end
 end
@@ -128,6 +134,16 @@ end
 function wind.querylocal(name)
     return assert(M.service[name], string.format("Not found service[%s] in local worker", name))
 end
+
+
+function wind.log(...)
+    wind.call("logger", "log", wind.self().id, ...)
+end
+
+function wind.error(...)
+    wind.call("logger", "error", wind.self().id, ...)
+end
+
 -- attach end
 
 

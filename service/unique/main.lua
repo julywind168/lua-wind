@@ -14,6 +14,10 @@ local Main = {}
 function Main:_init()
     print("Main start =====================")
 
+    -- logger
+    wind.uniqueservice(1, "logger")
+    wind.call("logger", "log", wind.self().id, "hello world", {a = 1, b = "ccccccc"})
+
     -- test tick
     self.count = 0
     self._sub._tick_1000 = true         -- sub `_tick_1000` event

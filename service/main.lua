@@ -12,10 +12,7 @@ local wind = require "lualib.wind"
 local Main = {}
 
 function Main:_init()
-    print("Main start =====================")
-
-    -- logger
-    wind.newservice(1, "logger")
+    wind.log("Main start =====================")
     wind.log("test log", {a = 1, b = "ccccccc"})
 
     -- test tick

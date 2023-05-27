@@ -12,8 +12,8 @@ local wind = require "lualib.wind"
 local Main = {}
 
 function Main:_init()
-    wind.log("Main start =====================")
-    wind.log("test log", {a = 1, b = "ccccccc"})
+    self:log("start =====================")
+    self:log("test log", {a = 1, b = "ccccccc"})
 
     -- test tick
     self.count = 0
@@ -23,9 +23,10 @@ function Main:_init()
     wind.newservice(wind.self().id, "root")
     self:test_root_hello()
 
-    -- multiple service
-    wind.newservice(1, "user_1", "user")
-    wind.newservice(2, "user_2", "user")
+    -- multiple service && test move
+    wind.newservice(1, "user_1", "user", {room = "room_1"})
+    wind.newservice(2, "user_2", "user", {room = "room_1"})
+    wind.newservice(math.random(1, 2), "room_1", "room", {players = {"user_1", "user_2"}})
 
     -- benchmark run in worker 2
     wind.newservice(2, "benchmark")
@@ -38,7 +39,7 @@ end
 
 function Main:test_root_hello()
     local root = wind.querylocal("root")
-    wind.log("Main:", root:hello("W", "O", "R", "L", "D"))
+    self:log(root:hello("W", "O", "R", "L", "D"))
 
     -- try query a not local service
     -- wind.querylocal("benchmark")
@@ -47,7 +48,7 @@ end
 function Main:_tick_1000()
     self.count = self.count + 1
     if self.count%5 == 0 then
-        wind.log("Main Tick", self.count)
+        self:log("Tick", self.count)
     end
 end
 

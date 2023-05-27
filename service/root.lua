@@ -4,11 +4,11 @@ local Root = {}
 
 
 function Root:_init()
-    wind.log("Root start =====================")
+    self:log("Root start =====================")
 end
 
 function Root:hello(...)
-    wind.log("Root.hello", ...)
+    self:log("Root.hello", ...)
     return table.concat({...})
 end
 

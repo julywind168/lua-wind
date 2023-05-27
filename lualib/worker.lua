@@ -4,18 +4,24 @@ local eventfd = require "wind.eventfd"
 local wind = require "lualib.wind"
 local config = require "config"
 
+local function try(f, ...)
+    if f then
+        return f(...)
+    end
+end
+
 
 local M = {
     alive = true,
     service = {},               -- id => service
     service_worker = {},        -- name => worker
+    class_cache = {},
 }
 
 
 local CMD = {}
 
-function CMD.service_created(name, worker)
-    -- print(wind.self().id, "service_created", name, worker)
+function CMD.sync_service_worker(name, worker)
     M.service_worker[name] = worker
 end
 
@@ -24,8 +30,26 @@ function CMD.newservice(name, ...)
 end
 
 function CMD.callservice(...)
-    -- print(wind.self().id, "callservice", ...)
     M._callservice(...)
+end
+
+function CMD.moveto(name, dest)
+    local s = M.service[name]
+    if dest == wind.self().id then
+        try(s._moved, s)
+    else
+        wind.send(dest, "move_arrived", name, s)
+        M.service_worker[name] = dest
+        for i = 1, config.nworker do
+            if i ~= wind.self().id and i ~= dest then
+                wind.send(i, "sync_service_worker", name, dest)
+            end
+        end
+    end
+end
+
+function CMD.move_arrived(name, s)
+    M._newservice(name, s._class, s, true)
 end
 
 local function handle(cmd, ...)
@@ -42,7 +66,6 @@ end
 
 -- CMD END
 
-
 function M._local_pub(name, ...)
     for _, service in pairs(M.service) do
         if service._sub[name] then
@@ -53,12 +76,6 @@ function M._local_pub(name, ...)
 end
 
 
-local function try(f, ...)
-    if f then
-        return f(...)
-    end
-end
-
 function M._send2other(...)
     for i = 1, config.nworker do
         if i ~= wind.self().id then
@@ -68,14 +85,36 @@ function M._send2other(...)
 end
 
 
-function M._newservice(name, classname, s)
+function M._require_class(name)
+    if not M.class_cache[name] then
+        local class = require(string.format("service.%s", name))
+
+        if not class.log then
+            function class:log(...)
+                wind.log(self._name..":", ...)
+            end
+        end
+
+        if not class.error then
+            function class:error(...)
+                wind.error(self._name..":", ...)
+            end
+        end
+
+        M.class_cache[name] = class
+    end
+    return M.class_cache[name]
+end
+
+
+function M._newservice(name, classname, s, is_move)
     if M.service[name] then
         return M.service[name]
     end
     if type(classname) ~= "string" then
         classname = name
     end
-    local mt = require(string.format("service.%s", classname))
+    local mt = M._require_class(classname)
     local service = s or {}
 
     service._name = name
@@ -83,10 +122,11 @@ function M._newservice(name, classname, s)
     service._sub = service._sub or {}
 
     setmetatable(service, {__index = mt})
-    try(service._init, service)
 
     M.service[name] = service
     M.service_worker[name] = wind.self().id
+
+    try(is_move and service._moved or service._init, service)
     return service
 end
 
@@ -108,7 +148,7 @@ function wind.newservice(worker, name, ...)
 
     for i = 1, config.nworker do
         if i ~= wind.self().id and i ~= worker then
-            wind.send(i, "service_created", name, worker)
+            wind.send(i, "sync_service_worker", name, worker)
         end
     end
     return service
@@ -127,6 +167,21 @@ function wind.call(name, ...)
     else
         error(string.format("not found service[%s]", name))
         return false
+    end
+end
+
+function wind.moveto(name, dest)
+    local source = assert(M.service_worker[name], name)
+    if source == dest then
+        -- arrived
+        if source == wind.self().id then
+            local s = M.service[name]
+            try(s._moved, s)
+        else
+            wind.send(source, "moveto", name, dest)
+        end
+    else
+        wind.send(source, "moveto", name, dest)
     end
 end
 

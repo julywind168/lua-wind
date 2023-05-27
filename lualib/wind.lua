@@ -27,7 +27,7 @@ function wind.newservice(worker, name, ...)
     wind.send(worker, "newservice", name, ...)
     for i = 1, config.nworker do
         if i ~= worker then
-            wind.send(i, "service_created", name, worker)
+            wind.send(i, "sync_service_worker", name, worker)
         end
     end
 end

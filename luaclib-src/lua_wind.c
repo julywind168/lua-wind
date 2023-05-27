@@ -136,9 +136,11 @@ static void * ll_thread(void *arg) {
 	lua_pop(L, 1);
 	// end
 
-	if (lua_pcall(L,0, 0, 0) != 0) 
-		fprintf(stderr, "thread[%d] error: %s\n", self->id, lua_tostring(L, -1));
-
+	if (lua_pcall(L, 0, 0, 0) != 0) {
+		luaL_traceback(L, L, lua_tostring(L, -1), 1);
+		fprintf(stderr, "worker[%d] error: %s\n", self->id, lua_tostring(L, -1));
+	} 
+	
 	return NULL;
 }
 

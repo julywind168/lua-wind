@@ -18,7 +18,7 @@ function Logger:log(source, ...)
             params[i] = tostring(v)
         end
     end
-    local text = table.concat(params, "\t")
+    local text = table.concat(params, "  ")
     print(string.format("worker[%d] %s", source, text))
 end
 

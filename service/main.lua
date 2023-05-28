@@ -2,7 +2,6 @@
     服务生命周期回调
     _init           : 被创建时调用
     _moved          : 被移动到新worker时调用
-    _joind          : 子service加入时调用
     _exit           : 退出时调用
 ]]
 

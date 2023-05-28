@@ -115,6 +115,44 @@ function M._require_class(name)
             end
         end
 
+        -- tcp listen, host is optional
+        if not class.listen then
+            function class:listen(host, port, handle)
+                assert(port)
+                if not handle then
+                    handle = port
+                    port = host
+                    host = "0.0.0.0"
+                end
+
+                local fd, err = socket.listen(host, port)
+                if err then
+                    return nil, err
+                end
+
+                -- register handle
+                self:sub(string.format("_socket_connect_%d", fd), function (_, client, addr)
+                    try(handle.connect, client, addr)
+                end)
+
+                self:sub(string.format("_socket_message_%d", fd), function (_, client, msg)
+                    try(handle.message, client, msg)
+                end)
+
+                self:sub(string.format("_socket_error_%d", fd), function (_, client, errmsg)
+                    try(handle.error, client, errmsg)
+                end)
+
+                self:sub(string.format("_socket_close_%d", fd), function (_, client)
+                    try(handle.close, client)
+                end)
+
+                M.fd_type[fd] = FD_TLISTENER
+                epoll.register(M.epfd, fd, epoll.EPOLLIN | epoll.EPOLLET)
+                return fd
+            end            
+        end
+
         M.class_cache[name] = class
     end
     return M.class_cache[name]
@@ -212,22 +250,6 @@ end
 function wind.error(...)
     wind.call("logger", "error", wind.self().id, ...)
 end
-
-function wind.listen(host, port)
-    if not port then
-        port = host
-        host = "0.0.0.0"
-    end
-    local fd, err = socket.listen(host, port)
-    if err then
-        return nil, err
-    end
-
-    M.fd_type[fd] = FD_TLISTENER
-    epoll.register(M.epfd, fd, epoll.EPOLLIN | epoll.EPOLLET)
-    return fd
-end
-
 -- attach end
 
 
@@ -266,17 +288,22 @@ function M.start()
                         M.fd_type[client_fd] = FD_TCLIENT
                         M.client_listener[client_fd] = fd
                         epoll.register(epfd, client_fd, epoll.EPOLLIN | epoll.EPOLLET)
-                        local socket_connect = string.format("socket_connect_%d", fd)
+                        local socket_connect = string.format("_socket_connect_%d", fd)
                         M._local_pub(socket_connect, client_fd, addr)
                     end
                 else
                     assert(type == FD_TCLIENT)
+                    local listen_fd = M.client_listener[fd]
                     local msg, err = socket.recv(fd)
                     if err then
-                        wind.error("recv error", fd, err)
+                        if err == "closed" then
+                            epoll.unregister(epfd, fd)
+                            M._local_pub(string.format("_socket_close_%d", listen_fd), fd)
+                        else
+                            M._local_pub(string.format("_socket_error_%d", listen_fd), fd, err)
+                        end
                     else
-                        local socket_message = string.format("socket_message_%d", M.client_listener[fd])
-                        M._local_pub(socket_message, fd, msg)
+                        M._local_pub(string.format("_socket_message_%d", listen_fd), fd, msg)
                     end
                 end
             end

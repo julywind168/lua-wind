@@ -1,6 +1,7 @@
 local epoll = require "wind.epoll"
 local timerfd = require "wind.timerfd"
 local eventfd = require "wind.eventfd"
+local socket = require "wind.socket"
 local wind = require "lualib.wind"
 local config = require "config"
 
@@ -10,12 +11,18 @@ local function try(f, ...)
     end
 end
 
+local FD_TLISTENER <const> = 1
+local FD_TCLIENT <const> = 2
 
 local M = {
     alive = true,
     service = {},               -- id => service
     service_worker = {},        -- name => worker
     class_cache = {},
+
+    -- network
+    fd_type = {},
+    client_listener = {},       -- client_fd => listen_fd
 }
 
 
@@ -91,13 +98,20 @@ function M._require_class(name)
 
         if not class.log then
             function class:log(...)
-                wind.log(self._name..":", ...)
+                wind.log((self._name or name)..":", ...)
             end
         end
 
         if not class.error then
             function class:error(...)
-                wind.error(self._name..":", ...)
+                wind.error((self._name or name)..":", ...)
+            end
+        end
+
+        if not class.sub then
+            function class:sub(eventname, callback)
+                self._sub[eventname] = true
+                class[eventname] = callback
             end
         end
 
@@ -199,11 +213,27 @@ function wind.error(...)
     wind.call("logger", "error", wind.self().id, ...)
 end
 
+function wind.listen(host, port)
+    if not port then
+        port = host
+        host = "0.0.0.0"
+    end
+    local fd, err = socket.listen(host, port)
+    if err then
+        return nil, err
+    end
+
+    M.fd_type[fd] = FD_TLISTENER
+    epoll.register(M.epfd, fd, epoll.EPOLLIN | epoll.EPOLLET)
+    return fd
+end
+
 -- attach end
 
 
 function M.start()
     local epfd = assert(epoll.create())
+    M.epfd = epfd
     local tfd = timerfd.create()
     timerfd.settime(tfd, config.tick)
     local efd = wind.self().efd
@@ -216,6 +246,7 @@ function M.start()
         local events = epoll.wait(epfd, -1, 512)
         for fd, event in pairs(events) do
             if fd == efd then
+                eventfd.read(fd)            -- it's a optional?
                 while true do
                     if handle(wind.recv()) then
                         break
@@ -224,6 +255,30 @@ function M.start()
             elseif fd == tfd then
                 timerfd.read(fd)
                 M._local_pub(tick_event)
+            else
+                local type = M.fd_type[fd]
+                if type == FD_TLISTENER then
+                    -- accept
+                    local client_fd, addr, err = socket.accept(fd)
+                    if err then
+                        wind.error("accept error", err)
+                    else
+                        M.fd_type[client_fd] = FD_TCLIENT
+                        M.client_listener[client_fd] = fd
+                        epoll.register(epfd, client_fd, epoll.EPOLLIN | epoll.EPOLLET)
+                        local socket_connect = string.format("socket_connect_%d", fd)
+                        M._local_pub(socket_connect, client_fd, addr)
+                    end
+                else
+                    assert(type == FD_TCLIENT)
+                    local msg, err = socket.recv(fd)
+                    if err then
+                        wind.error("recv error", fd, err)
+                    else
+                        local socket_message = string.format("socket_message_%d", M.client_listener[fd])
+                        M._local_pub(socket_message, fd, msg)
+                    end
+                end
             end
         end
     end

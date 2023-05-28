@@ -29,8 +29,11 @@ function Main:_init()
     wind.newservice(math.random(1, 2), "room_1", "room", {players = {"user_1", "user_2"}})
 
     -- benchmark run in worker 2
-    wind.newservice(2, "benchmark")
-    wind.call("benchmark", "start", 10*10000)
+    -- wind.newservice(2, "benchmark")
+    -- wind.call("benchmark", "start", 10*10000)
+
+    -- tcp
+    wind.newservice(1, "gate")
 end
 
 function Main:ping(from)
@@ -48,7 +51,7 @@ end
 function Main:_tick_1000()
     self.count = self.count + 1
     if self.count%5 == 0 then
-        self:log("Tick", self.count)
+        -- self:log("Tick", self.count)
     end
 end
 

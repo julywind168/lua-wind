@@ -75,6 +75,14 @@ A multithreading framework written for lua
             print("tick")
         end
 
+        -- service 生命周期回调函数
+            _init           : 被创建时调用
+            _moved          : 被移动到新 worker 时调用
+            _exit           : 退出时调用
+
+        与 sub 规则一致, 只不过它们无需手动订阅，只要声明了，事件发生时就会被框架自动调用
+
+
         -- 另一种方式 使用 self:sub 请查看demo
         -- self:listen 可以开启 tcp 监听, 是对 self:sub 的使用
         -- 从这里可以看出 wind 是一个分层的架构, 通过 c 代码提供基础能力,

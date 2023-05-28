@@ -18,68 +18,71 @@ A multithreading framework written for lua
     4. ./wind main.lua
 ```
 
-## Thread 功能分配
+## 框架设计 && 与skynet对比 && 最佳实践
 ```
-    1. main 主线程
-        server: 负责启动 root 和 worker 线程. 最后 join_threads
-        client: 负责启动 root 和 worker 线程. 随后进入渲染循环 (game engine), 最后 join_threads
+    wind 启动时会根据配置启动 N个 worker 线程, 每个线程都拥有一个自己 luavm
+    每个worker线程根据epoll事件来驱动。
 
-    2. root 事件生产者 (单个)
-        a. 创建 state 并分配至 worker
-        b. 接收 外部 socket 事件
-        c. 生产 timer::tick 事件
+    服务 service:
+    我们可以在某个worker中启动一个service, service 本质上就是一个对象, wind 中要求 service 的状态和方法分离(为什么? 下面解析)
 
-    3. worker 事件消费者 (多个)
-        state 将会分配给各个worker, 处理 root 或其他 worker 产生的事件
-```
+    API:
+    wind.newservice(worker, name, classname[opt], self[opt])
+        worker: worker 线程ID, 比如 1, 2, ...
+        name: 每个服务都应该一个全局唯一的名字, 比如 main, logger, user_1, user_2 . 为啥不像skynet那样使用数字id呢.
+            主要是为了简化设计, 根据示例可见, 使用者完全可以给出合适的名字
+        classname:
+            这个对应 service/ 下的文件名, 省略时等于 name, 对于单例服务来说, 通常省略, 因为 name == classname
+        self:
+            service 本身初始状态, 省略则 为 {}
+        
+    wind.call(service_name, func_name, ...)
+        与 skynet 不同, call 并没有返回值, 只是简单的调用一个 服务 的某个方法
 
+    wind.querylocal(name)
+        从本地worker中查询一个 service 并返回, 这样我们可以从本地使用service, 与 wind.call 不同的是，因为是本地调用，我们可以获得它的返回值
+        比如：
+            local s = wind.querylocal("calc")
+            print(s:add(1, 1))
 
-## State 特性
-```
-    定义:
-        state 是一个可序列化的 lua table (不能包含函数, userdata)，它可以附带一个元表(stateclass) 来处理调用
-        state 可以嵌套
-        state 只能处于 woker thread
-    所有权:
-        state 属于 parent state, parent state 属于 worker 线程
+    wind.moveto(service_name, dest_worker)
+        将一个服务移动到另一个 worker 中.
+        skynet 中 玩家登陆后会有个 agent 服务，来处理一些自娱自乐的逻辑，比如签到，开始匹配，等等。
+        玩家匹配成功后 会有专门的 room服务 处理游戏逻辑，这时候 agent, room 通常会用到玩家的金币属性，我们要不时同步, 这通常很令人苦恼
 
-    move:
-        state 所有权在 worker 中转移, 数据全量拷贝
-```
+        在 wind 中, 玩家一旦匹配成功, 创建了 room , 我们可以把 房间中的所有人(agent) 都移动到房间所在的 worker, 结合 wind.querylocal
+        我们可以愉快的编写 类似单线程程序的逻辑了！
 
-### Service
-```
-    定义:
-        service 只能处于 root thread
-    用途:
-        一些中心化的服务, 比如 user_mgr, match_mgr, room_mgr
-```
+    service 的 sub/pub
+        service 拥有一个 _sub 表，表示自己订阅了哪些事件, 并在 service class 中 声明一个与事件名相同的回调 
 
-## state class && pubsub (事件订阅)
-```lua
-    --看一个 User State 的 例子, 下面是它的实例及元表(class)
-    --[[
-        // 下划线开头的字段 均为框架保留
-        {
-            id = "1001",
-            nick = "wind",
+        比如：订阅框架内部的 tick 事件 (1s once)
 
-            _id = 1,                // _id 保留字段 由系统生成的 state_id
-            _tick_1000 = true       // 一个 tick_1000 tag, 表示该 state 订阅了 tick_1000 事件 (每1000ms 1个tick)
-        }
-    ]]
+        local S = {}
 
-    local User = {}
+        function S:_init()
+            s._sub._tick_1000 = true
+        end
 
-    -- state initialized, call by framework
-    function User:_init()
-    end
+        function S:_tick_1000()
+            print("tick")
+        end
 
-    -- child state joined, call by framework
-    function User:_join()
-    end
+        -- 另一种方式 使用 self:sub 请查看demo
+        -- self:listen 可以开启 tcp 监听, 是对 self:sub 的使用
+        -- 从这里可以看出 wind 是一个分层的架构, 通过 c 代码提供基础能力, 然后引入 worker, service 2大最基础的概念,
+        -- 然后我们可以设计出更高阶的api
 
-    -- 与 tag 同名的 event handler (your define in preload)
-    function User:_tick_1000()
-    end
+        pub:
+            todo
+    
+
+    总结: wind 启动了 N个 worker, 每个 worker 线程拥有自己独立的luavm, service 是一个状态和方法分离的对象, 它们根据需要分散在各个 worker 中
+        service 只能互相发送消息 或者 pub/sub 来通讯
+
+        没有了 skynet.call 这种 api, 处理 service 之间的强交互逻辑 肯定很麻烦, 但是 wind 中可以移动 service, 这样它们处于同一个 worker 中，
+        它们将非常愉快～
+
+        btw: 通过 benchmark 跨 worker service之间通讯, wind 的性能是 skynet 的2倍多～  
+
 ```

@@ -16,6 +16,7 @@ A multithreading framework written for lua
     2. cd wind/3rd/lua-5.4.6 && make linux
     3. cd wind && make
     4. ./wind main.lua
+    5. 新开一个终端 nc 127.0.0.1 6666 然后输入 hello world
 ```
 
 ## 框架设计 && 与skynet对比 && 最佳实践

@@ -59,6 +59,10 @@ function CMD.move_arrived(name, s)
     M._newservice(name, s._class, s, true)
 end
 
+function CMD.pub(...)
+    M._local_pub(...)
+end
+
 local function handle(cmd, ...)
     if not cmd then
         return true
@@ -112,6 +116,13 @@ function M._require_class(name)
             function class:sub(eventname, callback)
                 self._sub[eventname] = true
                 class[eventname] = callback
+            end
+        end
+
+        if not class.pub then
+            function class:pub(...)
+                M._local_pub( ...)
+                M._send2other("pub",  ...)
             end
         end
 

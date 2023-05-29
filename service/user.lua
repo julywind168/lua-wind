@@ -9,18 +9,18 @@ local User = {}
 
 
 function User:_init()
-    self:log("start =====================")
+    self._sub._main_hello = true
 end
 
 function User:_moved()
-    self:log("moved =====================")
+    self:log("moved")
     local room = wind.querylocal(self.room)
     room:ready()
 end
 
-function User:hello(...)
+function User:_main_hello(...)
+    self:log("main_hello", ...)
 end
-
 
 
 return User

@@ -11,7 +11,6 @@ local wind = require "lualib.wind"
 local Main = {}
 
 function Main:_init()
-    self:log("start =====================")
     self:log("test log", {a = 1, b = "ccccccc"})
 
     -- test tick
@@ -33,6 +32,9 @@ function Main:_init()
 
     -- tcp
     wind.newservice(1, "gate")
+
+    -- test pub event
+    self:pub("_main_hello", "world")
 end
 
 function Main:ping(from)

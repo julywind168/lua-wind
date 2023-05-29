@@ -14,7 +14,7 @@ local Room = {}
 function Room:_init()
     self.nready = 0
     self.status = "readying"
-    self:log("Room start =====================")
+    self:log("start")
     for i, uid in ipairs(self.players) do
         wind.moveto(uid, wind.self().id)
     end
@@ -29,7 +29,7 @@ end
 
 function Room:gamestart()
     self.status = "gameing"
-    self:log("Room gamestart =====================")
+    self:log("gamestart")
 end
 
 

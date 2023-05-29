@@ -89,8 +89,8 @@ A multithreading framework written for lua
         -- 从这里可以看出 wind 是一个分层的架构, 通过 c 代码提供基础能力,
         -- 然后引入 worker, service 2大最基础的概念, 然后我们可以设计出更高阶的api
 
-        pub:
-            todo
+        self:pub(event, ...)
+            发布一个事件, 这个事件将广播给所有worker中的所有service
     
 
     总结: wind 启动了 N个 worker, 每个 worker 线程拥有自己独立的luavm, service 是一个状态和方法分离的对象,

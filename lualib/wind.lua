@@ -2,9 +2,7 @@ local core = require "wind.core"
 local serialize = require "wind.serialize"
 local config = require "config"
 
-local wind = {
-    serviceclass = {}
-}
+local wind = {}
 
 
 function wind.self()

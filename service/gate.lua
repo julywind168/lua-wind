@@ -14,7 +14,7 @@ function Gate:_init()
     end
 
     function handle.message(fd, msg)
-        self:log("message", fd, string.trim(msg))
+        self:log("message", fd, msg:trim())
         socket.send(fd, msg)
     end
 

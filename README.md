@@ -17,6 +17,10 @@ A multithreading framework written for lua
     3. cd wind && make
     4. ./wind main.lua
     5. 新开一个终端 nc 127.0.0.1 6666 然后输入 hello world
+    6. 新开一个终端 nc 127.0.0.1 8000 打开 debugconsle
+        1. 在 debugconsle 中 输入 new 1 calc_bugfix
+        2. 修改 calc.lua, 将 add 函数 中的 `*` 改为 `+`
+        3. 在 debugconsle 中 输入 reload calc
 ```
 
 ## 框架设计 && 与skynet对比 && 最佳实践

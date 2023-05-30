@@ -28,6 +28,10 @@ local M = {
 
 local CMD = {}
 
+function CMD.reload(classname)
+    M._reload(classname)
+end
+
 function CMD.sync_service_worker(name, worker)
     M.service_worker[name] = worker
 end
@@ -99,6 +103,12 @@ end
 function M._require_class(name)
     if not M.class_cache[name] then
         local class = require(string.format("service.%s", name))
+
+        if not class.moveto then
+            function class:moveto(dest_worker)
+                wind.moveto(self._name, dest_worker)
+            end
+        end
 
         if not class.log then
             function class:log(...)
@@ -184,7 +194,9 @@ function M._newservice(name, classname, s, is_move)
     service._class = classname
     service._sub = service._sub or {}
 
-    setmetatable(service, {__index = mt})
+    setmetatable(service, {__index = function (_, key)
+        return M.class_cache[classname][key]
+    end})
 
     M.service[name] = service
     M.service_worker[name] = wind.self().id
@@ -197,6 +209,33 @@ function M._callservice(service_name, name, ...)
     local s = M.service[service_name]
     local f = s[name]
     return f(s, ...)
+end
+
+function M._reload_one(name)
+    local old = M.class_cache[name]
+    if old then
+        package.loaded[string.format("service.%s", name)] = nil
+        M.class_cache[name] = nil
+        local new = M._require_class(name)
+
+        -- old class 可能动态添加了一些方法, 转移给new
+        for k, f in pairs(old) do
+            new[k] = new[k] or f
+        end
+    end
+end
+
+function M._reload(classname)
+    classname = classname or "*"
+
+    if classname == "*" then
+        -- reload all
+        for name, _ in pairs(M.class_cache) do
+            M._reload_one(name)
+        end
+    else
+        M._reload_one(classname)
+    end
 end
 
 -- attach wind api
@@ -248,9 +287,19 @@ function wind.moveto(name, dest)
     end
 end
 
+-- reload service class
+function wind.reload(service_name)
+    M._reload(service_name)
+    M._send2other("reload", service_name)
+end
+
 -- query local service
 function wind.querylocal(name)
     return assert(M.service[name], string.format("Not found service[%s] in local worker", name))
+end
+
+function wind.queryworker(name)
+    return M.service_worker[name]
 end
 
 

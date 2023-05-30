@@ -17,9 +17,10 @@ function Main:_init()
     self.count = 0
     self._sub._tick_1000 = true         -- sub `_tick_1000` event
 
-    -- local
-    wind.newservice(wind.self().id, "root")
-    self:test_root_hello()
+    -- local && debug_console hotfix tutorial
+    self.bug_fixed = false
+    wind.newservice(wind.self().id, "calc")
+    self:test_calc()
 
     -- multiple service && test move
     wind.newservice(1, "user_1", "user", {room = "room_1"})
@@ -32,6 +33,7 @@ function Main:_init()
 
     -- tcp
     wind.newservice(1, "gate")
+    wind.newservice(1, "debug_console")
 
     -- test pub event
     self:pub("_main_hello", "world")
@@ -41,9 +43,15 @@ function Main:ping(from)
     wind.call(from, "pong")
 end
 
-function Main:test_root_hello()
-    local root = wind.querylocal("root")
-    self:log(root:hello("W", "O", "R", "L", "D"))
+function Main:test_calc()
+    local calc = wind.querylocal("calc")
+    local r = calc:add(3, 3)
+    self:log("3 + 3 =", r)
+
+    if r == 6 then
+        self.bug_fixed = true
+        wind.log("debug_console hotfix success!")
+    end
 
     -- try query a not local service
     -- wind.querylocal("benchmark")
@@ -51,8 +59,8 @@ end
 
 function Main:_tick_1000()
     self.count = self.count + 1
-    if self.count%5 == 0 then
-        -- self:log("Tick", self.count)
+    if self.count%5 == 0 and not self.bug_fixed then
+        self:test_calc()
     end
 end
 

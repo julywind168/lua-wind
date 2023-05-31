@@ -73,7 +73,7 @@ A multithreading framework written for lua
         local S = {}
 
         function S:_init()
-            s._sub._tick_1000 = true
+            self._sub._tick_1000 = true
         end
 
         function S:_tick_1000()
@@ -102,7 +102,5 @@ A multithreading framework written for lua
 
         没有了 skynet.call 这种 api, 处理 service 之间的强交互逻辑 肯定很麻烦, 但是 wind 中可以移动 service,
         这样它们处于同一个 worker 中，它们将非常愉快～
-
-        btw: 通过 benchmark 跨 worker service之间通讯, wind 的性能是 skynet 的2倍多～  
 
 ```

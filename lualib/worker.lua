@@ -288,9 +288,9 @@ function wind.moveto(name, dest)
 end
 
 -- reload service class
-function wind.reload(service_name)
-    M._reload(service_name)
-    M._send2other("reload", service_name)
+function wind.reload(classname)
+    M._reload(classname)
+    M._send2other("reload", classname)
 end
 
 -- query local service

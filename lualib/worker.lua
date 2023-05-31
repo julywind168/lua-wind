@@ -28,6 +28,10 @@ local M = {
 
 local CMD = {}
 
+function CMD.patch(service_name, patch)
+    M._patch(service_name, patch)
+end
+
 function CMD.reload(classname)
     M._reload(classname)
 end
@@ -238,6 +242,13 @@ function M._reload(classname)
     end
 end
 
+function M._patch(service_name, patch)
+    local s = assert(M.service[service_name])
+    for k, v in pairs(patch) do
+        s[k] = v
+    end
+end
+
 -- attach wind api
 function wind.newservice(worker, name, ...)
     local service
@@ -291,6 +302,19 @@ end
 function wind.reload(classname)
     M._reload(classname)
     M._send2other("reload", classname)
+end
+
+function wind.patch(service_name, patch)
+    if M.service[service_name] then
+        M._patch(service_name, patch)
+        return true
+    else
+        local worker = M.service_worker[service_name]
+        if not worker then
+            return false, string.format("service[%s] not exist", service_name)
+        end
+        wind.send(worker, "patch", service_name, patch)
+    end
 end
 
 -- query local service

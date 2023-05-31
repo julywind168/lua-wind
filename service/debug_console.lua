@@ -15,7 +15,12 @@ function DebugConsole:reload(calssname)
     wind.reload(calssname)
 end
 
-function DebugConsole:new(worker, name, calssname, s)
+function DebugConsole:patch(service_name, patch)
+    wind.patch(service_name, patch)
+end
+
+-- start a new service
+function DebugConsole:start(worker, name, calssname, s)
     wind.newservice(worker, name, calssname, s)
 end
 
@@ -37,7 +42,7 @@ function DebugConsole:_init()
         local cmd = assert(t[1])
         local f = self[cmd]
         if not f then
-            socket.send(string.format("Invalid command %s\n", cmd))
+            socket.send(fd, string.format("Invalid command %s\n", cmd))
             return
         end
         local r = f(self, table.unpack(t, 2)) or "done"
@@ -58,7 +63,7 @@ end
 
 
 function DebugConsole:parse_msg(msg)
-    local t = msg:split(" ")
+    local t = self:split_msg(msg)
     for i, v in ipairs(t) do
         if tonumber(v) then
             t[i] = tonumber(v)
@@ -73,6 +78,48 @@ function DebugConsole:parse_msg(msg)
     return t
 end
 
+
+function DebugConsole:split_msg(msg)
+    local function count(str, token)
+        return select(2, str:gsub(token, ""))
+    end
+
+    local function calc_level(token)
+        return count(token, "{") - count(token, "}")
+    end
+
+    local function split(str)
+        local t = str:split(" ")
+        local r = {}
+
+        local inside_table = false
+        local level = 0
+        local tmp
+
+        for _, token in ipairs(t) do
+            if inside_table then
+                table.insert(tmp, token)
+                level = level + calc_level(token)
+                if level == 0 then
+                    table.insert(r, table.concat(tmp, " "))
+                    inside_table = false
+                end
+            else
+                level = calc_level(token)
+                if level > 0 then
+                    inside_table = true
+                    tmp = {token}
+                else
+                    assert(level == 0)
+                    table.insert(r, token)
+                end
+            end
+        end
+        return r
+    end
+
+    return split(msg)
+end
 
 
 return DebugConsole

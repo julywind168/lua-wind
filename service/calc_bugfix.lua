@@ -17,7 +17,7 @@ function CalcBugFix:_moved()
     local calc = wind.querylocal("calc")
 
     -- fix the bug
-    calc.on_strike = false
+    calc.bug = false
 end
 
 

@@ -6,12 +6,12 @@ local Calc = {}
 
 
 function Calc:_init()
-    self.on_strike = true
+    self.bug = true
 end
 
 function Calc:add(a, b)
-    if self.on_strike then
-        return "please use debugconsole, try to new `calc_bugfix` service"
+    if self.bug then
+        return "try connect debug_console, input `patch calc {bug=false}`"
     end
     return a * b    -- it a bug here, should use `+`
 end

@@ -9,7 +9,6 @@
 #include <stdatomic.h>
 #include <sys/time.h>
 
-#include "lua_util.h"
 #include "lua_wind.h"
 #include "lua_epoll.h"
 #include "lua_serialize.h"

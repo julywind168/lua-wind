@@ -11,7 +11,6 @@ LUALIB = lua_wind.c \
 	lua_epoll.c \
 	lua_eventfd.c \
 	lua_timerfd.c \
-	lua_util.c \
 
 
 .PHONY: wind

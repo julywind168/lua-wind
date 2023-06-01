@@ -32,6 +32,10 @@ function CMD.patch(service_name, patch)
     M._patch(service_name, patch)
 end
 
+function CMD.mpatch(classname, patch)
+    M._mpatch(classname, patch)
+end
+
 function CMD.reload(classname)
     M._reload(classname)
 end
@@ -54,6 +58,7 @@ function CMD.moveto(name, dest)
         try(s._moved, s)
     else
         wind.send(dest, "move_arrived", name, s)
+        M.service[name] = nil
         M.service_worker[name] = dest
         for i = 1, config.nworker do
             if i ~= wind.self().id and i ~= dest then
@@ -249,6 +254,14 @@ function M._patch(service_name, patch)
     end
 end
 
+function M._mpatch(classname, patch)
+    for _, s in pairs(M.service) do
+        if s._class == classname then
+            M._patch(s._name, patch)
+        end
+    end
+end
+
 -- attach wind api
 function wind.newservice(worker, name, ...)
     local service
@@ -317,6 +330,12 @@ function wind.patch(service_name, patch)
     end
 end
 
+-- multiple patch
+function wind.mpatch(classname, patch)
+    M._mpatch(classname, patch)
+    M._send2other("mpatch", classname, patch)
+end
+
 -- query local service
 function wind.querylocal(name)
     return assert(M.service[name], string.format("Not found service[%s] in local worker", name))
@@ -372,8 +391,7 @@ function M.start()
                         M.fd_type[client_fd] = FD_TCLIENT
                         M.client_listener[client_fd] = fd
                         epoll.register(epfd, client_fd, epoll.EPOLLIN | epoll.EPOLLET)
-                        local socket_connect = string.format("_socket_connect_%d", fd)
-                        M._local_pub(socket_connect, client_fd, addr)
+                        M._local_pub(string.format("_socket_connect_%d", fd), client_fd, addr)
                     end
                 else
                     assert(type == FD_TCLIENT)

@@ -19,6 +19,10 @@ function DebugConsole:patch(service_name, patch)
     wind.patch(service_name, patch)
 end
 
+function DebugConsole:mpatch(classname, patch)
+    wind.mpatch(classname, patch)
+end
+
 -- start a new service
 function DebugConsole:start(worker, name, calssname, s)
     wind.newservice(worker, name, calssname, s)

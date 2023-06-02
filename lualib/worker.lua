@@ -28,6 +28,14 @@ local M = {
 
 local CMD = {}
 
+function CMD.service_exited(name)
+    M._clean(name)
+end
+
+function CMD.kill(name)
+    M._kill(name)
+end
+
 function CMD.patch(service_name, patch)
     M._patch(service_name, patch)
 end
@@ -142,6 +150,12 @@ function M._require_class(name)
             function class:pub(...)
                 M._local_pub( ...)
                 M._send2other("pub",  ...)
+            end
+        end
+
+        if not class.exit then
+            function class:exit()
+                wind.kill(self._name)
             end
         end
 
@@ -262,6 +276,17 @@ function M._mpatch(classname, patch)
     end
 end
 
+function M._kill(name)
+    local s = assert(M.service[name], name)
+    try(s._exit, s)
+    M._clean(name)
+end
+
+function M._clean(name)
+    M.service[name] = nil
+    M.service_worker[name] = nil
+end
+
 -- attach wind api
 function wind.newservice(worker, name, ...)
     local service
@@ -278,6 +303,26 @@ function wind.newservice(worker, name, ...)
         end
     end
     return service
+end
+
+
+function wind.kill(name)
+    local worker = M.service_worker[name]
+    if worker then
+        if worker == wind.self().id then
+            M._kill(name)
+        else
+            wind.send(worker, "kill", name)
+            M._clean(name)
+        end
+        for i = 1, config.nworker do
+            if i ~= worker and i ~= wind.self().id then
+                wind.send(i, "service_exited", name)
+            end
+        end
+    else
+        wind.error(string.format("wind.kill: service[%s] not exist", name))
+    end
 end
 
 function wind.call(name, ...)

@@ -23,11 +23,14 @@ function DebugConsole:mpatch(classname, patch)
     wind.mpatch(classname, patch)
 end
 
--- start a new service
-function DebugConsole:start(worker, name, calssname, s)
+-- new service
+function DebugConsole:new(worker, name, calssname, s)
     wind.newservice(worker, name, calssname, s)
 end
 
+function DebugConsole:kill(service_name)
+    wind.kill(service_name)
+end
 -- api end ----------------------------------------------------------
 
 function DebugConsole:_init()

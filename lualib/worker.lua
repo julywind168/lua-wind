@@ -28,6 +28,24 @@ local M = {
 
 local CMD = {}
 
+
+-- for worker 1
+local shutdown = 0
+
+function CMD.worker_shutdown_completed()
+    shutdown = shutdown + 1
+    if shutdown == config.nworker - 1 then
+        M._shutdown()
+    end
+    return true
+end
+
+-- for worker 2+
+function CMD.shutdown()
+    M._shutdown()
+    return true
+end
+
 function CMD.service_exited(name)
     M._clean(name)
 end
@@ -90,13 +108,18 @@ local function handle(cmd, ...)
     end
     local f = CMD[cmd]
     if f then
-        f(...)
+        if f(...) then
+            return true
+        end
     else
         print("Unknown cmd", cmd, ...)
     end
 end
 
 -- CMD END
+function M._logger_available()
+    return M.service_worker[config.logservice]
+end
 
 function M._local_pub(name, ...)
     for _, service in pairs(M.service) do
@@ -207,6 +230,9 @@ function M._newservice(name, classname, s, is_move)
     if M.service[name] then
         return M.service[name]
     end
+    if M._logger_available() then
+        wind.error(is_move and "movservice" or "newservice", name, classname, s)
+    end
     if type(classname) ~= "string" then
         classname = name
     end
@@ -276,9 +302,14 @@ function M._mpatch(classname, patch)
     end
 end
 
+function M._try_service_exit(s)
+    try(s._exit, s)
+    wind.error(s._name..":", "exit")
+end
+
 function M._kill(name)
     local s = assert(M.service[name], name)
-    try(s._exit, s)
+    M._try_service_exit(s)
     M._clean(name)
 end
 
@@ -287,7 +318,54 @@ function M._clean(name)
     M.service_worker[name] = nil
 end
 
+function M._shutdown()
+    -- close normal services
+    for _, s in pairs(M.service) do
+        if not config.delay_close_sequence[s._name] then
+            M._try_service_exit(s)
+        end
+    end
+    -- close delay-close services
+    for i = #config.delay_close_sequence, 1, -1 do
+        local s = M.service[config.delay_close_sequence[i]]
+        if s then
+            M._try_service_exit(s)
+        end
+    end
+    if wind.self().id ~= 1 then
+        wind.send(1, "worker_shutdown_completed")
+    end
+    M.alive = false
+end
+
 -- attach wind api
+
+--[[
+    安全的关闭 wind 进程
+    1. 关闭 worker 2 ~ worker N
+    2. 关闭 worker 1
+]]
+function wind.shutdown()
+    local myid = wind.self().id
+    if myid == 1 then
+        if config.nworker == 1 then
+            M._shutdown()
+        else
+            M._send2other("shutdown")
+        end
+    else
+        if config.nworker > 2 then
+            for i = 2, config.nworker do
+                if i ~= myid then
+                    wind.send(i, "shutdown")
+                end
+            end
+        end
+        M._shutdown()
+    end
+end
+
+
 function wind.newservice(worker, name, ...)
     local service
     if worker == wind.self().id then
@@ -307,6 +385,7 @@ end
 
 
 function wind.kill(name)
+    wind.error("kill", name)
     local worker = M.service_worker[name]
     if worker then
         if worker == wind.self().id then
@@ -392,11 +471,11 @@ end
 
 
 function wind.log(...)
-    wind.call("logger", "log", wind.self().id, ...)
+    wind.call(config.logservice, "log", wind.self().id, ...)
 end
 
 function wind.error(...)
-    wind.call("logger", "error", wind.self().id, ...)
+    wind.call(config.logservice, "error", wind.self().id, ...)
 end
 -- attach end
 
@@ -456,6 +535,9 @@ function M.start()
             end
         end
     end
+
+    epoll.close(epfd)
+    timerfd.close(tfd)
 end
 
 

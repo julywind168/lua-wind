@@ -11,7 +11,6 @@ local wind = require "lualib.wind"
 local Main = {}
 
 function Main:_init()
-    self:log("test log", {a = 1, b = "ccccccc"})
 
     -- test tick
     self.count = 0
@@ -62,9 +61,6 @@ function Main:_tick_1000()
     if self.count%5 == 0 and not self.bug_fixed then
         self:test_calc()
     end
-end
-
-function Main:_exit()
 end
 
 

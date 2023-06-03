@@ -6,6 +6,9 @@ local DebugConsole = {}
 
 
 -- api start --------------------------------------------------------
+function DebugConsole:shutdown()
+    wind.shutdown()
+end
 
 -- reload a service class, or use `reload *` to reload all
 function DebugConsole:reload(calssname)

@@ -81,8 +81,11 @@ l_send(lua_State *L) {
 			static uint64_t increment = 1;
 			write(to->efd, &increment, sizeof(increment));
 		}
+		lua_pushboolean(L, 1);
+	} else {
+		lua_pushboolean(L, 0);
 	}
-	return 0;
+	return 1;
 }
 
 static int
@@ -100,6 +103,13 @@ l_time(lua_State *L)
     return 1;  /* number of results */
 }
 
+static int
+l_sleep(lua_State *L) {
+	lua_Integer time = lua_tointeger(L, 1);
+	sleep(time);
+	return 0;
+}
+
 int
 lua_lib_wind_core(lua_State* L) {
 	static const struct luaL_Reg l[] = {
@@ -108,6 +118,7 @@ lua_lib_wind_core(lua_State* L) {
 		{"self", l_self},
 		{"nthread", l_nthread},
 		{"time", l_time},
+		{"sleep", l_sleep},
 		{NULL, NULL}
 	};
     luaL_newlib(L, l);

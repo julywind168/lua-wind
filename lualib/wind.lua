@@ -39,6 +39,7 @@ function wind.recv()
 end
 
 wind.time = core.time
+wind.sleep = core.sleep
 
 
 return wind

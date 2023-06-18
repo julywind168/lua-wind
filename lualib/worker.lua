@@ -368,6 +368,32 @@ function wind.shutdown()
     end
 end
 
+local wind_send = wind.send
+
+function wind.send(thread_id, ...)
+    for i = 1, 5 do
+        if wind_send(thread_id, ...) then
+            if i > 1 then
+                wind.error(string.format("warn: wind.send delay %ds, the worker[%d] maybe overload.", i - 1, thread_id))
+            end
+            return
+        else
+            if i < 5 then
+                wind.sleep(1)
+            else
+                -- panic
+                local errmsg = string.format("panic: wind.send failed, the worker[%d]'s queue maybe is full.", thread_id)
+                if thread_id == 1 then  -- logger is in worker 1
+                    print(errmsg)
+                else
+                    wind.error(errmsg)
+                end
+                -- todo: kill wind process
+            end
+        end
+    end
+end
+
 
 function wind.newservice(worker, name, ...)
     local service

@@ -3,12 +3,8 @@ local wind = require "lualib.wind"
 local Logger = {}
 
 
-function Logger:_init()
-
-end
-
 -- todo 
--- write to a singal file
+-- write to date-files
 function Logger:log(source, ...)
     local text = self:concat(source, ...)
     print(text)
@@ -23,16 +19,28 @@ end
 
 function Logger:concat(source, ...)
     local args = {...}
+    local msgs = {}
+    local len = select('#', ...)
     local v
-    for i = 1, select('#', ...) do
+    for i = 1, len do
         v = args[i]
         if type(v) == "table" then
-            args[i] = dump(v)
+            msgs[i] = dump(v)
         else
-            args[i] = tostring(v)
+            msgs[i] = tostring(v)
         end
     end
-    local text = table.concat(args, "  ")
+
+    -- clean `nil` on the tail
+    for i = len, 1, -1 do
+        if args[i] == nil then
+            msgs[i] = nil
+        else
+            break
+        end
+    end
+
+    local text = table.concat(msgs, "  ")
     return string.format("worker[%d] %s", source, text)
 end
 

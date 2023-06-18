@@ -2,13 +2,7 @@
 A multithreading framework written for lua
 
     Wind 的目标是 一个跨平台的, 可用于（游戏）服务端/客户端 的 多线程运行时。
-    1. 简单的底层架构
-    2. 通过引入一些概念和规范来帮助开发者提高 多线程 code 体验
-    3. 更高的开发效率
-    4. 更少的BUG
-    5. 更低的心智负担
-    6. 更高的性能
-
+    目前主要方向是 linux 服务端的开发
 
 ## Test (only linux now)
 ```
@@ -17,11 +11,6 @@ A multithreading framework written for lua
     3. cd wind && make
     4. ./wind main.lua
     5. 新开一个终端 nc 127.0.0.1 6666 然后输入 hello world
-    6. 新开一个终端 nc 127.0.0.1 8000 打开 debugconsle
-        a1. 在 debugconsle 中 输入 patch calc {bug=false} [推荐]
-        a2. 也可以选择 输入 start 1 calc_bugfix
-        b. 修改 calc.lua, 将 add 函数 中的 `*` 改为 `+`
-        c. 在 debugconsle 中 输入 reload calc
 ```
 
 ## 框架设计 && 与skynet对比 && 最佳实践
@@ -69,22 +58,22 @@ A multithreading framework written for lua
     service 的 sub/pub
         service 拥有一个 _sub 表，表示自己订阅了哪些事件, 并在 service class 中 声明一个与事件名相同的回调 
 
-        比如：订阅框架内部的 tick 事件 (1s once)
+        比如：订阅框架内部的 tick 事件 (1s once, 可以在 config.lua 中修改)
 
         local S = {}
 
-        function S:_init()
-            self._sub._tick_1000 = true
+        function S:__init()
+            self._sub.tick_1000 = true
         end
 
-        function S:_tick_1000()
+        function S:__tick_1000()
             print("tick")
         end
 
         -- service 生命周期回调函数
-            _init           : 被创建时调用
-            _moved          : 被移动到新 worker 时调用
-            _exit           : 退出时调用
+            __init           : 被创建时调用
+            __moved          : 被移动到新 worker 时调用
+            __exit           : 退出时调用
 
         与 sub 规则一致, 只不过它们无需手动订阅，只要声明了，事件发生时就会被框架自动调用
 
@@ -97,6 +86,10 @@ A multithreading framework written for lua
         self:pub(event, ...)
             发布一个事件, 这个事件将广播给所有worker中的所有service
     
+    service class 规范:
+        字母开头的方法 是公开的接口
+        下划线开头是 私有方法
+        双下划线开头的是 对事件的回调, 包含了生命周期函数
 
     总结: wind 启动了 N个 worker, 每个 worker 线程拥有自己独立的luavm, service 是一个状态和方法分离的对象,
         它们根据需要分散在各个 worker 中，service 只能互相发送消息 或者 pub/sub 来通讯

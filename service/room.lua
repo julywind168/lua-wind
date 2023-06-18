@@ -11,7 +11,7 @@ local wind = require "lualib.wind"
 local Room = {}
 
 
-function Room:_init()
+function Room:__init()
     self.nready = 0
     self.status = "readying"
     self:log("start")

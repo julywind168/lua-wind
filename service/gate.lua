@@ -5,7 +5,7 @@ local socket = require "wind.socket"
 local Gate = {}
 
 
-function Gate:_init()
+function Gate:__init()
 
     local handle = {}
 

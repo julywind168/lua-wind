@@ -8,18 +8,12 @@ local wind = require "lualib.wind"
 local User = {}
 
 
-function User:_init()
-    self._sub._main_hello = true
+function User:__init()
 end
 
-function User:_moved()
+function User:__moved()
     self:log("moved")
-    local room = wind.querylocal(self.room)
-    room:ready()
-end
-
-function User:_main_hello(...)
-    self:log("main_hello", ...)
+    wind.querylocal(self.room):ready()
 end
 
 

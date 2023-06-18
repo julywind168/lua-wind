@@ -36,7 +36,7 @@ function DebugConsole:kill(service_name)
 end
 -- api end ----------------------------------------------------------
 
-function DebugConsole:_init()
+function DebugConsole:__init()
 
     local handle = {}
 

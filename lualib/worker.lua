@@ -122,9 +122,10 @@ function M._logger_available()
 end
 
 function M._local_pub(name, ...)
+    local handle_name = "__" .. name
     for _, service in pairs(M.service) do
         if service._sub[name] then
-            local f = assert(service[name], name)
+            local f = assert(service[handle_name], name)
             f(service, ...)
         end
     end
@@ -165,7 +166,7 @@ function M._require_class(name)
         if not class.sub then
             function class:sub(eventname, callback)
                 self._sub[eventname] = true
-                class[eventname] = callback
+                getmetatable(self)["__"..eventname] = callback
             end
         end
 
@@ -198,26 +199,26 @@ function M._require_class(name)
                 end
 
                 -- register handle
-                self:sub(string.format("_socket_connect_%d", fd), function (_, client, addr)
+                self:sub(string.format("socket_connect_%d", fd), function (_, client, addr)
                     try(handle.connect, client, addr)
                 end)
 
-                self:sub(string.format("_socket_message_%d", fd), function (_, client, msg)
+                self:sub(string.format("socket_message_%d", fd), function (_, client, msg)
                     try(handle.message, client, msg)
                 end)
 
-                self:sub(string.format("_socket_error_%d", fd), function (_, client, errmsg)
+                self:sub(string.format("socket_error_%d", fd), function (_, client, errmsg)
                     try(handle.error, client, errmsg)
                 end)
 
-                self:sub(string.format("_socket_close_%d", fd), function (_, client)
+                self:sub(string.format("socket_close_%d", fd), function (_, client)
                     try(handle.close, client)
                 end)
 
                 M.fd_type[fd] = FD_TLISTENER
                 epoll.register(M.epfd, fd, epoll.EPOLLIN | epoll.EPOLLET)
                 return fd
-            end            
+            end
         end
 
         M.class_cache[name] = class
@@ -236,21 +237,23 @@ function M._newservice(name, classname, s, is_move)
     if type(classname) ~= "string" then
         classname = name
     end
-    local mt = M._require_class(classname)
-    local service = s or {}
+    M._require_class(classname)
 
+    local service = s or {}
     service._name = name
     service._class = classname
     service._sub = service._sub or {}
 
-    setmetatable(service, {__index = function (_, key)
-        return M.class_cache[classname][key]
-    end})
+    local mt = {}
+    function mt.__index(_, key)
+        return mt[key] or M.class_cache[classname][key]
+    end
+    setmetatable(service, mt)
 
     M.service[name] = service
     M.service_worker[name] = wind.self().id
 
-    try(is_move and service._moved or service._init, service)
+    try(is_move and service.__moved or service.__init, service)
     return service
 end
 
@@ -303,7 +306,7 @@ function M._mpatch(classname, patch)
 end
 
 function M._try_service_exit(s)
-    try(s._exit, s)
+    try(s.__exit, s)
     wind.error(s._name..":", "exit")
 end
 
@@ -426,7 +429,7 @@ function wind.moveto(name, dest)
         -- arrived
         if source == wind.self().id then
             local s = M.service[name]
-            try(s._moved, s)
+            try(s.__moved, s)
         else
             wind.send(source, "moveto", name, dest)
         end
@@ -489,7 +492,7 @@ function M.start()
     epoll.register(epfd, efd, epoll.EPOLLIN | epoll.EPOLLET)
     epoll.register(epfd, tfd, epoll.EPOLLIN | epoll.EPOLLET)
 
-    local tick_event = string.format("_tick_%d", config.tick)
+    local tick_event = string.format("tick_%d", config.tick)
 
     while M.alive do
         local events = epoll.wait(epfd, -1, 512)
@@ -515,7 +518,7 @@ function M.start()
                         M.fd_type[client_fd] = FD_TCLIENT
                         M.client_listener[client_fd] = fd
                         epoll.register(epfd, client_fd, epoll.EPOLLIN | epoll.EPOLLET)
-                        M._local_pub(string.format("_socket_connect_%d", fd), client_fd, addr)
+                        M._local_pub(string.format("socket_connect_%d", fd), client_fd, addr)
                     end
                 else
                     assert(type == FD_TCLIENT)
@@ -524,12 +527,12 @@ function M.start()
                     if err then
                         if err == "closed" then
                             epoll.unregister(epfd, fd)
-                            M._local_pub(string.format("_socket_close_%d", listen_fd), fd)
+                            M._local_pub(string.format("socket_close_%d", listen_fd), fd)
                         else
-                            M._local_pub(string.format("_socket_error_%d", listen_fd), fd, err)
+                            M._local_pub(string.format("socket_error_%d", listen_fd), fd, err)
                         end
                     else
-                        M._local_pub(string.format("_socket_message_%d", listen_fd), fd, msg)
+                        M._local_pub(string.format("socket_message_%d", listen_fd), fd, msg)
                     end
                 end
             end

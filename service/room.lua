@@ -23,11 +23,11 @@ end
 function Room:ready()
     self.nready = self.nready + 1
     if self.nready == #self.players then
-        self:gamestart()
+        self:_gamestart()
     end
 end
 
-function Room:gamestart()
+function Room:_gamestart()
     self.status = "gameing"
     self:log("gamestart")
 end

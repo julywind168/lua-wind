@@ -6,18 +6,18 @@ local Logger = {}
 -- todo 
 -- write to date-files
 function Logger:log(source, ...)
-    local text = self:concat(source, ...)
+    local text = self:_concat(source, ...)
     print(text)
 end
 
 -- todo 
 -- write to a singal file
 function Logger:error(source, ...)
-    local text = self:concat(source, ...)
+    local text = self:_concat(source, ...)
     print(string.format("%s%s%s", "\27[33;38;2;200;100;50m", text, "\27[0m"))
 end
 
-function Logger:concat(source, ...)
+function Logger:_concat(source, ...)
     local args = {...}
     local msgs = {}
     local len = select('#', ...)

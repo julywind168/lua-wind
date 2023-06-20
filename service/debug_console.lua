@@ -5,36 +5,33 @@ local socket = require "wind.socket"
 local DebugConsole = {}
 
 
--- api start --------------------------------------------------------
-function DebugConsole:shutdown()
+-- command start --------------------------------------------------------
+local CMD = {}
+
+function CMD.shutdown()
     wind.shutdown()
 end
 
--- reload a service class, or use `reload *` to reload all
-function DebugConsole:reload(calssname)
-    if not calssname then
-        return "need a calssname"
-    end
-    wind.reload(calssname)
+function CMD.reload(calssname)
+    wind.reload(calssname or "*")
 end
 
-function DebugConsole:patch(service_name, patch)
+function CMD.patch(service_name, patch)
     wind.patch(service_name, patch)
 end
 
-function DebugConsole:mpatch(classname, patch)
+function CMD.mpatch(classname, patch)
     wind.mpatch(classname, patch)
 end
 
--- new service
-function DebugConsole:new(worker, name, calssname, s)
+function CMD.new(worker, name, calssname, s)
     wind.newservice(worker, name, calssname, s)
 end
 
-function DebugConsole:kill(service_name)
+function CMD.kill(service_name)
     wind.kill(service_name)
 end
--- api end ----------------------------------------------------------
+-- command end ----------------------------------------------------------
 
 function DebugConsole:__init()
 
@@ -46,16 +43,18 @@ function DebugConsole:__init()
     end
 
     function handle.message(fd, msg)
+        if msg:trim() == "" then
+            return
+        end
         self:log("message", fd, msg:trim())
-
-        local t = self:parse_msg(msg:trim())
+        local t = self:_parse_msg(msg:trim())
         local cmd = assert(t[1])
-        local f = self[cmd]
+        local f = CMD[cmd]
         if not f then
             socket.send(fd, string.format("Invalid command %s\n", cmd))
             return
         end
-        local r = f(self, table.unpack(t, 2)) or "done"
+        local r = f(table.unpack(t, 2)) or "done"
         socket.send(fd, r.."\n")
     end
 
@@ -72,8 +71,8 @@ function DebugConsole:__init()
 end
 
 
-function DebugConsole:parse_msg(msg)
-    local t = self:split_msg(msg)
+function DebugConsole:_parse_msg(msg)
+    local t = self:_split_msg(msg)
     for i, v in ipairs(t) do
         if tonumber(v) then
             t[i] = tonumber(v)
@@ -89,7 +88,7 @@ function DebugConsole:parse_msg(msg)
 end
 
 
-function DebugConsole:split_msg(msg)
+function DebugConsole:_split_msg(msg)
     local function count(str, token)
         return select(2, str:gsub(token, ""))
     end

@@ -16,7 +16,7 @@ function Room:__init()
     self.status = "readying"
     self:log("start")
     for i, uid in ipairs(self.players) do
-        wind.moveto(uid, wind.self().id)
+        wind.moveto(uid, wind.id)
     end
 end
 

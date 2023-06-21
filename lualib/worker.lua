@@ -80,14 +80,14 @@ end
 
 function CMD.moveto(name, dest)
     local s = M.service[name]
-    if dest == wind.self().id then
+    if dest == wind.id then
         try(s._moved, s)
     else
         wind.send(dest, "move_arrived", name, s)
         M.service[name] = nil
         M.service_worker[name] = dest
         for i = 1, config.nworker do
-            if i ~= wind.self().id and i ~= dest then
+            if i ~= wind.id and i ~= dest then
                 wind.send(i, "sync_service_worker", name, dest)
             end
         end
@@ -134,7 +134,7 @@ end
 
 function M._send2other(...)
     for i = 1, config.nworker do
-        if i ~= wind.self().id then
+        if i ~= wind.id then
             wind.send(i, ...)
         end
     end
@@ -251,7 +251,7 @@ function M._newservice(name, classname, s, is_move)
     setmetatable(service, mt)
 
     M.service[name] = service
-    M.service_worker[name] = wind.self().id
+    M.service_worker[name] = wind.id
 
     try(is_move and service.__moved or service.__init, service)
     return service
@@ -335,7 +335,7 @@ function M._shutdown()
             M._try_service_exit(s)
         end
     end
-    if wind.self().id ~= 1 then
+    if wind.id ~= 1 then
         wind.send(1, "worker_shutdown_completed")
     end
     M.alive = false
@@ -349,7 +349,7 @@ end
     2. 关闭 worker 1
 ]]
 function wind.shutdown()
-    local myid = wind.self().id
+    local myid = wind.id
     if myid == 1 then
         if config.nworker == 1 then
             M._shutdown()
@@ -397,7 +397,7 @@ end
 
 function wind.newservice(worker, name, ...)
     local service
-    if worker == wind.self().id then
+    if worker == wind.id then
         service = M._newservice(name, ...)
     else
         wind.send(worker, "newservice", name, ...)
@@ -405,7 +405,7 @@ function wind.newservice(worker, name, ...)
     M.service_worker[name] = worker
 
     for i = 1, config.nworker do
-        if i ~= wind.self().id and i ~= worker then
+        if i ~= wind.id and i ~= worker then
             wind.send(i, "sync_service_worker", name, worker)
         end
     end
@@ -417,14 +417,14 @@ function wind.kill(name)
     wind.error("kill", name)
     local worker = M.service_worker[name]
     if worker then
-        if worker == wind.self().id then
+        if worker == wind.id then
             M._kill(name)
         else
             wind.send(worker, "kill", name)
             M._clean(name)
         end
         for i = 1, config.nworker do
-            if i ~= worker and i ~= wind.self().id then
+            if i ~= worker and i ~= wind.id then
                 wind.send(i, "service_exited", name)
             end
         end
@@ -453,7 +453,7 @@ function wind.moveto(name, dest)
     local source = assert(M.service_worker[name], name)
     if source == dest then
         -- arrived
-        if source == wind.self().id then
+        if source == wind.id then
             local s = M.service[name]
             try(s.__moved, s)
         else
@@ -500,11 +500,11 @@ end
 
 
 function wind.log(...)
-    wind.call(config.logservice, "log", wind.self().id, ...)
+    wind.call(config.logservice, "log", wind.id, ...)
 end
 
 function wind.error(...)
-    wind.call(config.logservice, "error", wind.self().id, ...)
+    wind.call(config.logservice, "error", wind.id, ...)
 end
 -- attach end
 
@@ -514,7 +514,7 @@ function M.start()
     M.epfd = epfd
     local tfd = timerfd.create()
     timerfd.settime(tfd, config.tick)
-    local efd = wind.self().efd
+    local efd = wind.efd
     epoll.register(epfd, efd, epoll.EPOLLIN | epoll.EPOLLET)
     epoll.register(epfd, tfd, epoll.EPOLLIN | epoll.EPOLLET)
 

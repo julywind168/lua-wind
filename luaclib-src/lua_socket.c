@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/time.h>
@@ -27,6 +28,30 @@ int setnonblocking(int sockfd)
         return -1;
     return 0;
 }
+
+static int
+l_unix_connect(lua_State *L) {
+	const char *sockfile = luaL_checkstring(L, 1);
+    struct sockaddr_un addr;
+
+    int fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (fd == -1) {
+        perror("socket");
+        exit(EXIT_FAILURE);
+    }
+
+    bzero(&addr, sizeof(struct sockaddr_un));
+    addr.sun_family = AF_UNIX;
+    strcpy(addr.sun_path, sockfile);
+    if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
+        perror("connect");
+        exit(EXIT_FAILURE);
+    }
+
+	lua_pushinteger(L, fd);
+	return 1;
+}
+
 
 static int
 l_connect(lua_State *L) {
@@ -221,6 +246,7 @@ lua_lib_socket(lua_State *L) {
 
 		// client
 		{"connect", l_connect},
+		{"unix_connect", l_unix_connect},
 	    {NULL, NULL}
 	};
 

@@ -14,6 +14,9 @@ function Main:__init()
     -- sub example
     -- self._sub.tick_1000 = true
 
+    -- proxy
+    wind.newservice(1, "proxy")
+
     -- move example
     wind.newservice(1, "user_1", "user", {room = "room_1"})
     wind.newservice(2, "user_2", "user", {room = "room_1"})

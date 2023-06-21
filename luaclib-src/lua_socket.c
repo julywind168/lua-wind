@@ -59,8 +59,7 @@ l_connect(lua_State *L) {
 	int fd, port;
 	short sin_family;
 	struct sockaddr_in dest_addr;
-
-
+	
 	ip = luaL_checkstring(L, 1);
 	port = luaL_checkinteger(L, 2);
 	sin_family = (short)luaL_optinteger(L, 3, AF_INET);

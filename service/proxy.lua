@@ -1,24 +1,31 @@
 local wind = require "lualib.wind"
 local socket = require "wind.socket"
 
-local proxyaddr <const> = "/tmp/windproxy.sock"
+local SOCKPATH <const> = "/tmp/windproxy.sock"
 
 
 local Proxy = {}
 
 
 function Proxy:__init()
-    local fd = socket.unix_connect(proxyaddr)
-    self:log("connect", fd)
+    local handle = {}
 
-    socket.send(fd, "hello world")
+    function handle.message(msg)
+        self:log("recv", msg)
+    end
 
-    wind.sleep(1)
+    function handle.error(errmsg)
+        self:log("connect error", errmsg)
+    end
 
-    self:log("recv ...")
-    self:log(socket.recv(fd))
+    function handle.close()
+        self:log("connect closed")
+    end
 
-    socket.close(fd)
+    local fd = self:connect({protocol = "unix", sockpath = SOCKPATH}, handle)
+    if fd then
+        socket.send(fd, "hello world")
+    end
 end
 
 

@@ -183,6 +183,39 @@ function M._require_class(name)
             end
         end
 
+        if not class.connect then
+            function class:connect(config, handle)
+                config.protocol = config.protocol or "tcp"
+                local fd, err
+
+                if config.protocol == "tcp" then
+                    fd, err = socket.connect(assert(config.host), assert(config.port), config.family)
+                elseif config.protocol == "unix" then
+                    fd, err = socket.unix_connect(assert(config.sockpath))
+                end
+
+                if err then
+                    return nil, err
+                end
+
+                self:sub(string.format("socket_message_%d", fd), function (_, _, msg)
+                    try(handle.message, msg)
+                end)
+
+                self:sub(string.format("socket_error_%d", fd), function (_, _, errmsg)
+                    try(handle.error, errmsg)
+                end)
+
+                self:sub(string.format("socket_close_%d", fd), function ()
+                    try(handle.close)
+                end)
+
+                M.fd_type[fd] = FD_TCLIENT
+                epoll.register(M.epfd, fd, epoll.EPOLLIN | epoll.EPOLLET)
+                return fd
+            end
+        end
+
         -- tcp listen, host is optional
         if not class.listen then
             function class:listen(host, port, handle)
@@ -198,7 +231,6 @@ function M._require_class(name)
                     return nil, err
                 end
 
-                -- register handle
                 self:sub(string.format("socket_connect_%d", fd), function (_, client, addr)
                     try(handle.connect, client, addr)
                 end)
@@ -548,7 +580,7 @@ function M.start()
                     end
                 else
                     assert(type == FD_TCLIENT)
-                    local listen_fd = M.client_listener[fd]
+                    local listen_fd = M.client_listener[fd] or fd -- maybe is socket.connect fd
                     local msg, err = socket.recv(fd)
                     if err then
                         if err == "closed" then

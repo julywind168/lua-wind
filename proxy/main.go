@@ -9,8 +9,7 @@ import (
 const socketPath = "/tmp/windproxy.sock"
 
 func main() {
-	//  创建 Unix Socket
-	os.Remove(socketPath)
+	cleanup()
 	listener, err := net.Listen("unix", socketPath)
 	if err != nil {
 		panic(err)
@@ -48,5 +47,13 @@ func main() {
 
 		// 关闭连接
 		client.Close()
+	}
+}
+
+func cleanup() {
+	if _, err := os.Stat(socketPath); err == nil {
+		if err := os.RemoveAll(socketPath); err != nil {
+			fmt.Println(err)
+		}
 	}
 }

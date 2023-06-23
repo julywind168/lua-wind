@@ -14,7 +14,12 @@ function Proxy:__init()
     local handle = {}
 
     function handle.message(msg)
-        self:log("recv", msg)
+        -- self:log("recv", msg)
+        local response = json.decode(msg)
+        local session = response.session
+        local source = session_source[session]
+        response.session = nil
+        wind.call(source.name, source.handlename, response)
     end
 
     function handle.error(errmsg)
@@ -38,7 +43,6 @@ function Proxy:__init()
         function Proxy:request(name, params, source)
             local s = session()
             session_source[s] = source
-
             socket.send(fd, json.encode{s, name, params})
         end
 

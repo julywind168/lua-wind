@@ -13,7 +13,8 @@ local Main = {}
 function Main:__init()
     self:log("start")
 
-    self:http_get("https://api.vvhan.com/api/joke", {token = "TOKEN"}, function (r)
+    -- r: {error, body}
+    self:http_get("https://api.vvhan.com/api/joke", function (r)
         self:log("response:", r)
     end)
 end

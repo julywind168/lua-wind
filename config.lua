@@ -6,7 +6,8 @@ local config = {
 
     -- The frontmost service is the last to close when wind shutdown
     delay_close_sequence = ENUM{
-        "logger"
+        "logger",
+        "proxy"
     }
 }
 

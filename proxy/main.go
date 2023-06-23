@@ -52,33 +52,58 @@ func main() {
 				params := data[2].(map[string]interface{})
 
 				if cmd == "http_get" {
-					fmt.Println("url: " + params["url"].(string))
-					do_http_get(client, session, params["url"].(string))
+					do_http_get(client, session, params)
 				}
 			}
 		}()
 	}
 }
 
-func do_http_get(client net.Conn, session string, url string) {
-	resp, err := http.Get(url)
+func do_http_get(client net.Conn, session string, params map[string]interface{}) {
+
+	url := params["url"].(string)
+	headers := params["headers"].(map[string]interface{})
+
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		fmt.Println("HTTP GET 请求失败：", err)
+		response(client, HttpGetResponse{
+			Session: session,
+			Error:   err.Error(),
+		})
 		return
 	}
+
+	for key, value := range headers {
+		req.Header.Set(key, value.(string))
+	}
+
+	httpc := &http.Client{}
+	resp, err := httpc.Do(req)
+	if err != nil {
+		response(client, HttpGetResponse{
+			Session: session,
+			Error:   err.Error(),
+		})
+		return
+	}
+
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println("读取 HTTP 响应失败：", err)
-		return
+		response(client, HttpGetResponse{
+			Session: session,
+			Error:   err.Error(),
+		})
+	} else {
+		response(client, HttpGetResponse{
+			Session: session,
+			Body:    string(body),
+		})
 	}
+}
 
-	r := HttpGetResponse{
-		Session: session,
-		Body:    string(body),
-	}
-
+func response(client net.Conn, r interface{}) {
 	response, err := json.Marshal(r)
 	if err != nil {
 		fmt.Println(err)
@@ -86,7 +111,8 @@ func do_http_get(client net.Conn, session string, url string) {
 	}
 	_, err = client.Write(response)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return
 	}
 	fmt.Printf("Sent message to client: %s\n", string(response))
 }
@@ -101,5 +127,6 @@ func cleanup() {
 
 type HttpGetResponse struct {
 	Session string `json:"session"`
+	Error   string `json:"error"`
 	Body    string `json:"body"`
 }

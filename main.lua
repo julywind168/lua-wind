@@ -10,6 +10,7 @@ end
 
 
 wind.newservice(1, config.logservice)
+wind.newservice(1, config.proxyservice)
 wind.newservice(1, "main")
 
 

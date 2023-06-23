@@ -183,6 +183,24 @@ function M._require_class(name)
             end
         end
 
+        -- header is optional
+        if not class.http_get then
+            function class:http_get(url, header, callback)
+                if not callback then
+                    callback = header
+                    header = nil
+                    assert(type(callback) == "function")
+                end
+
+                self._session = (self._session or 0) + 1
+
+                local handlename = "__http_get_"..self._session
+                getmetatable(self)[handlename] = callback
+
+                wind.call(config.proxyservice, "request", "http_get", {url = url, header = header}, {name = self._name, handlename = handlename})
+            end
+        end
+
         if not class.connect then
             function class:connect(config, handle)
                 config.protocol = config.protocol or "tcp"

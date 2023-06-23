@@ -11,7 +11,11 @@ local wind = require "lualib.wind"
 local Main = {}
 
 function Main:__init()
-    wind.newservice(1, "proxy")
+    self:log("start")
+
+    self:http_get("https://api.vvhan.com/api/joke", {token = "TOKEN"}, function (r)
+        self:log("response:", r)
+    end)
 end
 
 

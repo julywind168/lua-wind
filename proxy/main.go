@@ -1,8 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net"
+	"net/http"
 	"os"
 )
 
@@ -17,37 +20,75 @@ func main() {
 	defer listener.Close()
 
 	fmt.Printf("Listening on Unix Domain Socket %s\n", socketPath)
-
 	for {
-		// 等待客户端连接
 		client, err := listener.Accept()
 		if err != nil {
 			panic(err)
 		}
 
 		// 接收客户端消息
-		buffer := make([]byte, 1024)
-		length, err := client.Read(buffer)
-		if err != nil {
-			panic(err)
-		}
-		message := string(buffer[:length])
-		fmt.Printf("Received message from client: %s\n", message)
+		go func() {
+			for {
+				buffer := make([]byte, 1024)
+				length, err := client.Read(buffer)
+				if err != nil {
+					fmt.Println(err)
+					client.Close()
+					return
+				}
+				message := string(buffer[:length])
+				fmt.Printf("Received message from client: %s\n", message)
 
-		// 处理客户端消息
-		// TODO: 在这里编写处理客户端消息的逻辑
+				// 处理客户端消息
+				// TODO: 在这里编写处理客户端消息的逻辑
+				var data []interface{}
+				err = json.Unmarshal([]byte(message), &data)
+				if err != nil {
+					fmt.Println(err)
+				}
 
-		// 向客户端发送消息
-		response := []byte("Hello, client!")
-		_, err = client.Write(response)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Printf("Sent message to client: %s\n", string(response))
+				session := data[0].(string)
+				cmd := data[1].(string)
+				params := data[2].(map[string]interface{})
 
-		// 关闭连接
-		client.Close()
+				if cmd == "http_get" {
+					fmt.Println("url: " + params["url"].(string))
+					do_http_get(client, session, params["url"].(string))
+				}
+			}
+		}()
 	}
+}
+
+func do_http_get(client net.Conn, session string, url string) {
+	resp, err := http.Get(url)
+	if err != nil {
+		fmt.Println("HTTP GET 请求失败：", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("读取 HTTP 响应失败：", err)
+		return
+	}
+
+	r := HttpGetResponse{
+		Session: session,
+		Body:    string(body),
+	}
+
+	response, err := json.Marshal(r)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	_, err = client.Write(response)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Sent message to client: %s\n", string(response))
 }
 
 func cleanup() {
@@ -56,4 +97,9 @@ func cleanup() {
 			fmt.Println(err)
 		}
 	}
+}
+
+type HttpGetResponse struct {
+	Session string `json:"session"`
+	Body    string `json:"body"`
 }

@@ -3,6 +3,7 @@ local timerfd = require "wind.timerfd"
 local eventfd = require "wind.eventfd"
 local socket = require "wind.socket"
 local wind = require "lualib.wind"
+local json = require "lualib.json"
 local config = require "config"
 
 local function try(f, ...)
@@ -183,26 +184,36 @@ function M._require_class(name)
             end
         end
 
-        -- headers is optional
-        if not class.http_get then
-            function class:http_get(url, headers, callback)
+
+        -- params is optional
+        if not class.fetch then
+            function class:fetch(url, params, callback)
                 if not callback then
-                    callback = headers
-                    headers = {}
-                    assert(type(callback) == "function")
+                    callback = params
+                    params = {}
                 end
 
-                headers["accept"] = "*/*"
+                params.url = url
+                params.method = params.method or "GET"
+                params.headers = params.headers or {}
+                params.body = params.body or ""
+
+                assert(params.method == "GET" or params.method == "POST")
+                if not next(params.headers) then
+                    params.headers["accept"] = "*/*"
+                end
+                if params.method == "POST" and type(params.body) == "table" then
+                    params.headers["content-type"] = params.headers["content-type"] or "application/json"
+                    params.body = json.encode(params.body)
+                end
 
                 self._session = (self._session or 0) + 1
-
-                local handlename = "__http_get_"..self._session
+                local handlename = "__http_request_"..self._session
                 getmetatable(self)[handlename] = function (_, ...)
                     callback(...)
                     getmetatable(self)[handlename] = nil
                 end
-
-                wind.call(config.proxyservice, "request", "http_get", {url = url, headers = headers}, {name = self._name, handlename = handlename})
+                wind.call(config.proxyservice, "request", "http_request", params, {name = self._name, handlename = handlename})
             end
         end
 

@@ -13,15 +13,22 @@ local Main = {}
 function Main:__init()
     self:log("start")
 
-    -- r: {error, body}
-    self:http_get("https://api.vvhan.com/api/joke", function (r)
-        self:log("response:", r)
+    -- test http.get
+    self:fetch("https://api.vvhan.com/api/joke", function (r)
+        self:log("get response:", r)
     end)
-end
 
-
-function Main:__tick_1000()
-    self:log("Tick")
+    -- test http.post
+    self:fetch(
+        "https://jsonplaceholder.typicode.com/posts",
+        {
+            method = "POST",
+            body = {useId = 1, nick = "windy"}
+        },
+        function (r)
+            self:log("post response:", r)
+        end
+    )
 end
 
 

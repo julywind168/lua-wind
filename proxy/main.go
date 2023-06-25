@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -51,28 +52,35 @@ func main() {
 				cmd := data[1].(string)
 				params := data[2].(map[string]interface{})
 
-				if cmd == "http_get" {
-					do_http_get(client, session, params)
+				if cmd == "http_request" {
+					body, err := do_http_request(params)
+					if err != nil {
+						response(client, HttpRequestResponse{
+							Session: session,
+							Error:   err.Error(),
+						})
+					} else {
+						response(client, HttpRequestResponse{
+							Session: session,
+							Body:    body,
+						})
+					}
 				}
 			}
 		}()
 	}
 }
 
-func do_http_get(client net.Conn, session string, params map[string]interface{}) {
-
+func do_http_request(params map[string]interface{}) (string, error) {
+	method := params["method"].(string)
 	url := params["url"].(string)
+	body := params["body"].(string)
 	headers := params["headers"].(map[string]interface{})
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest(method, url, bytes.NewBuffer([]byte(body)))
 	if err != nil {
-		response(client, HttpGetResponse{
-			Session: session,
-			Error:   err.Error(),
-		})
-		return
+		return "", err
 	}
-
 	for key, value := range headers {
 		req.Header.Set(key, value.(string))
 	}
@@ -80,26 +88,15 @@ func do_http_get(client net.Conn, session string, params map[string]interface{})
 	httpc := &http.Client{}
 	resp, err := httpc.Do(req)
 	if err != nil {
-		response(client, HttpGetResponse{
-			Session: session,
-			Error:   err.Error(),
-		})
-		return
+		return "", err
 	}
-
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	result, err := io.ReadAll(resp.Body)
 	if err != nil {
-		response(client, HttpGetResponse{
-			Session: session,
-			Error:   err.Error(),
-		})
+		return "", err
 	} else {
-		response(client, HttpGetResponse{
-			Session: session,
-			Body:    string(body),
-		})
+		return string(result), nil
 	}
 }
 
@@ -125,7 +122,7 @@ func cleanup() {
 	}
 }
 
-type HttpGetResponse struct {
+type HttpRequestResponse struct {
 	Session string `json:"session"`
 	Error   string `json:"error"`
 	Body    string `json:"body"`

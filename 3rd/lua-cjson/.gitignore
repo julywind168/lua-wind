@@ -1,0 +1,8 @@
+*.html
+*.o
+*.so
+*.a
+notes
+packages
+tags
+tests/utf8.dat

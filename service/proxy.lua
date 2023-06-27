@@ -32,20 +32,10 @@ function Proxy:__init()
 
     local fd = self:connect({protocol = "unix", sockpath = SOCKPATH}, handle)
     if fd then
-        local starttime = wind.time()
-        local count = 0
-
-        local function session()
-            count = count + 1
-            return string.format("%d_%d", starttime, count)
+        function Proxy:request(session, name, params, source)
+            session_source[session] = source
+            socket.send(fd, json.encode{session, name, params})
         end
-
-        function Proxy:request(name, params, source)
-            local s = session()
-            session_source[s] = source
-            socket.send(fd, json.encode{s, name, params})
-        end
-
         self:log("connect success")
     end
 end

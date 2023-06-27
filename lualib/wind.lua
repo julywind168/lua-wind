@@ -7,6 +7,7 @@ local wind = {}
 
 do
     wind.id, wind.efd = core.self()
+    wind.starttime = core.starttime()
 end
 
 

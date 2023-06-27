@@ -1,3 +1,5 @@
+package.cpath = "luaclib/?.so;" .. package.cpath
+
 require "preload.dump"
 require "preload.string"
 require "preload.table"

@@ -195,25 +195,26 @@ function M._require_class(name)
 
                 params.url = url
                 params.method = params.method or "GET"
-                params.headers = params.headers or {}
+                params.header = params.header or {}
                 params.body = params.body or ""
 
                 assert(params.method == "GET" or params.method == "POST")
-                if not next(params.headers) then
-                    params.headers["accept"] = "*/*"
+                if not next(params.header) then
+                    params.header["accept"] = "*/*"
                 end
                 if params.method == "POST" and type(params.body) == "table" then
-                    params.headers["content-type"] = params.headers["content-type"] or "application/json"
+                    params.header["content-type"] = params.header["content-type"] or "application/json"
                     params.body = json.encode(params.body)
                 end
 
                 self._session = (self._session or 0) + 1
                 local handlename = "__http_request_"..self._session
+                local session = string.format("%s_%s_%d", wind.starttime, self._name, self._session)
                 getmetatable(self)[handlename] = function (_, ...)
                     callback(...)
                     getmetatable(self)[handlename] = nil
                 end
-                wind.call(config.proxyservice, "request", "http_request", params, {name = self._name, handlename = handlename})
+                wind.call(config.proxyservice, "request", session, "http_request", params, {name = self._name, handlename = handlename})
             end
         end
 

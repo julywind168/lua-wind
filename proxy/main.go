@@ -53,7 +53,7 @@ func main() {
 				params := data[2].(map[string]interface{})
 
 				if cmd == "http_request" {
-					body, err := do_http_request(params)
+					body, header, err := do_http_request(params)
 					if err != nil {
 						response(client, HttpRequestResponse{
 							Session: session,
@@ -62,6 +62,7 @@ func main() {
 					} else {
 						response(client, HttpRequestResponse{
 							Session: session,
+							Header:  header,
 							Body:    body,
 						})
 					}
@@ -71,32 +72,32 @@ func main() {
 	}
 }
 
-func do_http_request(params map[string]interface{}) (string, error) {
+func do_http_request(params map[string]interface{}) (string, http.Header, error) {
 	method := params["method"].(string)
 	url := params["url"].(string)
 	body := params["body"].(string)
-	headers := params["headers"].(map[string]interface{})
+	header := params["header"].(map[string]interface{})
 
 	req, err := http.NewRequest(method, url, bytes.NewBuffer([]byte(body)))
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
-	for key, value := range headers {
+	for key, value := range header {
 		req.Header.Set(key, value.(string))
 	}
 
 	httpc := &http.Client{}
 	resp, err := httpc.Do(req)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	defer resp.Body.Close()
 
 	result, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	} else {
-		return string(result), nil
+		return string(result), resp.Header, nil
 	}
 }
 
@@ -123,7 +124,8 @@ func cleanup() {
 }
 
 type HttpRequestResponse struct {
-	Session string `json:"session"`
-	Error   string `json:"error"`
-	Body    string `json:"body"`
+	Session string      `json:"session"`
+	Error   string      `json:"error"`
+	Header  http.Header `json:"header"`
+	Body    string      `json:"body"`
 }

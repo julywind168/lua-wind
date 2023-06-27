@@ -28,6 +28,14 @@
 // other is worker
 static struct Proc g_processes[MAX_THREAD] = {0};
 static int last_proc_idx = 0;
+static uint64_t g_starttime = 0;
+
+
+static inline uint64_t now() {
+    struct timeval start;
+    gettimeofday( &start, NULL );
+    return 1000*start.tv_sec + start.tv_usec/1000;
+}
 
 
 /////////////////////////////////// wind.core ///////////////////////////////////
@@ -100,7 +108,7 @@ l_time(lua_State *L)
     struct timeval start;
     gettimeofday( &start, NULL );
     lua_pushinteger(L, 1000*start.tv_sec + start.tv_usec/1000);
-    return 1;  /* number of results */
+    return 1;
 }
 
 static int
@@ -108,6 +116,13 @@ l_sleep(lua_State *L) {
 	lua_Integer time = lua_tointeger(L, 1);
 	sleep(time);
 	return 0;
+}
+
+static int
+l_starttime(lua_State *L)
+{   
+    lua_pushinteger(L, g_starttime);
+    return 1;
 }
 
 int
@@ -119,6 +134,7 @@ lua_lib_wind_core(lua_State* L) {
 		{"nthread", l_nthread},
 		{"time", l_time},
 		{"sleep", l_sleep},
+		{"starttime", l_starttime},
 		{NULL, NULL}
 	};
     luaL_newlib(L, l);
@@ -230,6 +246,8 @@ lua_lib_wind_main(lua_State* L)
 	int pid = 0;
 	lua_pushinteger(L, pid);
 	lua_setfield(L, LUA_REGISTRYINDEX, "_PID");
+
+	g_starttime = now();
 
 	struct Proc *self = g_processes;
 	self->id      = pid;

@@ -15,6 +15,7 @@
 #include "lua_socket.h"
 #include "lua_timerfd.h"
 #include "lua_eventfd.h"
+#include "lua_cjson.h"
 
 #include "queue.h"
 
@@ -159,6 +160,8 @@ static void * ll_thread(void *arg) {
 	luaL_requiref(L, "wind.serialize", lua_lib_serialize, 0);
 	lua_pop(L, 1);
 	luaL_requiref(L, "wind.core", lua_lib_wind_core, 0);
+	lua_pop(L, 1);
+	luaL_requiref(L, "wind.cjson", luaopen_cjson, 0);
 	lua_pop(L, 1);
 	// end
 

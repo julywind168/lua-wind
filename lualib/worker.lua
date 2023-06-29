@@ -3,8 +3,26 @@ local timerfd = require "wind.timerfd"
 local eventfd = require "wind.eventfd"
 local socket = require "wind.socket"
 local wind = require "lualib.wind"
-local json = require "lualib.json"
+local json = require "wind.cjson"
 local config = require "config"
+
+local SOCKET_BUF_DEFAULT_SIZE <const> = 1024
+local socket_recv = socket.recv
+
+function socket.recv(fd)
+    local buff = ""
+    while true do
+        local msg, err = socket_recv(fd)
+        if err then
+            return buff, err
+        else
+            buff = buff..msg
+            if #msg < SOCKET_BUF_DEFAULT_SIZE then
+                return buff
+            end
+        end
+    end
+end
 
 local function try(f, ...)
     if f then
@@ -184,6 +202,15 @@ function M._require_class(name)
             end
         end
 
+        local function is_json_respone(header)
+            local content_type = header["Content-Type"]
+            for i, text in ipairs(content_type) do
+                if text:find("application/json") then
+                    return true
+                end
+            end
+            return false
+        end
 
         -- params is optional
         if not class.fetch then
@@ -210,8 +237,18 @@ function M._require_class(name)
                 self._session = (self._session or 0) + 1
                 local handlename = "__http_request_"..self._session
                 local session = string.format("%s_%s_%d", wind.starttime, self._name, self._session)
-                getmetatable(self)[handlename] = function (_, ...)
-                    callback(...)
+                getmetatable(self)[handlename] = function (_, respone)
+                    if respone.error == "" then
+                        respone.error = nil
+                        if respone.body ~= "" and respone.header and is_json_respone(respone.header) then
+                            -- Not every respone content-type is consistent
+                            local ok, body = pcall(json.decode, respone.body)
+                            if ok then
+                                respone.body = body
+                            end
+                        end
+                    end
+                    callback(respone)
                     getmetatable(self)[handlename] = nil
                 end
                 wind.call(config.proxyservice, "request", session, "http_request", params, {name = self._name, handlename = handlename})

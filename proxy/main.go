@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -26,49 +29,59 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+		go handleClient(client)
+	}
+}
 
-		// 接收客户端消息
-		go func() {
-			for {
-				buffer := make([]byte, 1024)
-				length, err := client.Read(buffer)
-				if err != nil {
-					fmt.Println(err)
-					client.Close()
-					return
-				}
-				message := string(buffer[:length])
-				fmt.Printf("Received message from client: %s\n", message)
-
-				// 处理客户端消息
-				// TODO: 在这里编写处理客户端消息的逻辑
-				var data []interface{}
-				err = json.Unmarshal([]byte(message), &data)
-				if err != nil {
-					fmt.Println(err)
-				}
-
-				session := data[0].(string)
-				cmd := data[1].(string)
-				params := data[2].(map[string]interface{})
-
-				if cmd == "http_request" {
-					body, header, err := do_http_request(params)
-					if err != nil {
-						response(client, HttpRequestResponse{
-							Session: session,
-							Error:   err.Error(),
-						})
-					} else {
-						response(client, HttpRequestResponse{
-							Session: session,
-							Header:  header,
-							Body:    body,
-						})
-					}
-				}
+func handleClient(c net.Conn) {
+	defer c.Close()
+	reader := bufio.NewReader(c)
+	for {
+		pkgLenBuf := make([]byte, 2)
+		if _, err := io.ReadFull(reader, pkgLenBuf); err != nil {
+			if err != io.EOF {
+				fmt.Printf("Error reading package length from socket: %v\n", err)
 			}
-		}()
+			return
+		}
+		pkgLen := binary.BigEndian.Uint16(pkgLenBuf)
+		pkgBuf := make([]byte, pkgLen)
+		if _, err := io.ReadFull(reader, pkgBuf); err != nil {
+			if err != io.EOF {
+				fmt.Printf("Error reading package body from socket: %v\n", err)
+			}
+			return
+		}
+		fmt.Printf("Received package with length %v: %v\n", pkgLen, string(pkgBuf))
+		go handleRequest(c, pkgBuf)
+	}
+}
+
+func handleRequest(c net.Conn, message []byte) {
+	var data []interface{}
+	err := json.Unmarshal([]byte(message), &data)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	session := data[0].(string)
+	cmd := data[1].(string)
+	params := data[2].(map[string]interface{})
+
+	if cmd == "http_request" {
+		body, header, err := do_http_request(params)
+		if err != nil {
+			response(c, HttpRequestResponse{
+				Session: session,
+				Error:   err.Error(),
+			})
+		} else {
+			response(c, HttpRequestResponse{
+				Session: session,
+				Header:  header,
+				Body:    body,
+			})
+		}
 	}
 }
 
@@ -107,7 +120,7 @@ func response(client net.Conn, r interface{}) {
 		fmt.Println(err)
 		return
 	}
-	_, err = client.Write(response)
+	_, err = client.Write(string_pack(response))
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -121,6 +134,18 @@ func cleanup() {
 			fmt.Println(err)
 		}
 	}
+}
+
+// 大端2字节
+func string_pack(data []byte) []byte {
+	var length int = len(data)
+	if length > (int(math.Pow(2, 16)) - 1) {
+		panic(fmt.Sprintf("Value %d is out of range for uint16", length))
+	}
+	headerBytes := make([]byte, 2)
+	binary.BigEndian.PutUint16(headerBytes, uint16(length))
+	newData := append(headerBytes, data...)
+	return newData
 }
 
 type HttpRequestResponse struct {

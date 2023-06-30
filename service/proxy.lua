@@ -57,7 +57,10 @@ function Proxy:__init()
     local fd = self:connect({protocol = "unix", sockpath = SOCKPATH}, handle)
     if fd then
         function Proxy:request(session, name, params, source)
-            session_source[session] = source
+            self:log("request", session, name, params, source)
+            if source then
+                session_source[session] = source
+            end
             socket.send(fd, string.pack(">s2",json.encode{session, name, params}))
         end
         self:log("connect success")

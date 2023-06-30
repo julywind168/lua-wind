@@ -212,6 +212,44 @@ function M._require_class(name)
             return false
         end
 
+        if not class.httpserver then
+            function class:httpserver(params, handle)
+                params.port = tostring(assert(params.port))
+                params.timeout = params.timeout or 5
+
+                self._session = (self._session or 0) + 1
+                local handlename = "__httpserver_"..self._session
+                local session = string.format("%s_%s_%d", wind.starttime, self._name, self._session)
+
+                getmetatable(self)[handlename] = function (_, respone)
+                    -- self:log("http_request:", respone)
+
+                    if respone.req_session == 0 then
+                        try(handle.error, respone.error)
+                        error("httpserver start failed!", respone.error)
+                    else
+                        local method = respone.method:lower()
+                        local path = respone.path
+                        local f = handle[method] and handle[method][path]
+                        local statuscode, result
+                        if f then
+                            statuscode = 200
+                            result = f(respone.query, respone.header, respone.body) or ""
+                        else
+                            statuscode = 502
+                            result = ""
+                        end
+                        wind.call(config.proxyservice, "request", session, "httpserver_response", {
+                            req_session = respone.req_session,
+                            statuscode = statuscode,
+                            body = result
+                        })
+                    end
+                end
+                wind.call(config.proxyservice, "request", session, "httpserver_create", params, {name = self._name, handlename = handlename})
+            end
+        end
+
         -- params is optional
         if not class.fetch then
             function class:fetch(url, params, callback)

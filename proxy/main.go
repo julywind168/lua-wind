@@ -15,6 +15,8 @@ import (
 
 const socketPath = "/tmp/windproxy.sock"
 
+var httpserver_session = make(map[string]HttpServer)
+
 func main() {
 	cleanup()
 	listener, err := net.Listen("unix", socketPath)
@@ -82,7 +84,32 @@ func handleRequest(c net.Conn, message []byte) {
 				Body:    body,
 			})
 		}
+	} else if cmd == "httpserver_create" {
+		port := params["port"].(string)
+		timeout := params["timeout"].(float64)
+		s := HttpServer{
+			Client:     c,
+			Session:    session,
+			ReqSession: 0,
+			ReqChan:    make(map[int]chan HttpServerReqResult),
+		}
+		go s.Start(port, int(timeout))
+		httpserver_session[session] = s
+	} else if cmd == "httpserver_response" {
+		req_session := params["req_session"].(float64)
+		statuscode := params["statuscode"].(float64)
+		body := params["body"].(string)
+		s := httpserver_session[session]
+		s.OnHttpResponse(int(req_session), HttpServerReqResult{int(statuscode), body})
+	} else if cmd == "httpserver_close" {
+		s := httpserver_session[session]
+		s.Close()
+		CleanHttpServer(session)
 	}
+}
+
+func CleanHttpServer(session string) {
+	delete(httpserver_session, session)
 }
 
 func do_http_request(params map[string]interface{}) (string, http.Header, error) {

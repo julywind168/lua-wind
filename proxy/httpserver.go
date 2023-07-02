@@ -47,8 +47,8 @@ func (s *HttpServer) Start(port string, timeout int) {
 		defer cancel()
 
 		query := make(map[string]string)
-		for _, name := range c.ParamNames() {
-			query[name] = c.Param(name)
+		for key, value := range c.Request().URL.Query() {
+			query[key] = value[0]
 		}
 
 		body, err := io.ReadAll(c.Request().Body)
@@ -60,7 +60,7 @@ func (s *HttpServer) Start(port string, timeout int) {
 			Session:    s.Session,
 			ReqSession: s.ReqSession,
 			Method:     c.Request().Method,
-			Path:       c.Request().RequestURI,
+			Path:       c.Request().URL.Path,
 			Query:      query,
 			Header:     c.Request().Header,
 			Body:       string(body),

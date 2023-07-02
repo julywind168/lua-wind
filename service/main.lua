@@ -33,14 +33,16 @@ function Main:__init()
 
     -- http server example
     local get = {
-        ["/"] =  function ()
-            return "hello world from wind"
+        ["/joker"] =  function (c)
+            self:fetch("https://api.vvhan.com/api/joke", function (r)
+                c.response(r.body)
+            end)
         end
     }
 
     local post = {
-        ["/"] = function (_, _, body)
-            return body
+        ["/"] = function (c)
+            return c.body
         end
     }
 

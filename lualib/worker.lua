@@ -202,14 +202,20 @@ function M._require_class(name)
             end
         end
 
-        local function is_json_respone(header)
-            local content_type = header["Content-Type"]
-            for i, text in ipairs(content_type) do
-                if text:find("application/json") then
-                    return true
+        local function concat_golang_header(header)
+            if header then
+                for key, value in pairs(header) do
+                    header[key] = table.concat(value, ",")
                 end
+            else
+                header = {}
             end
-            return false
+            return header
+        end
+
+        local function is_json_http_request(header)
+            local content_type = header["Content-Type"]
+            return content_type and content_type:find("application/json")
         end
 
         if not class.httpserver then
@@ -221,29 +227,56 @@ function M._require_class(name)
                 local handlename = "__httpserver_"..self._session
                 local session = string.format("%s_%s_%d", wind.starttime, self._name, self._session)
 
-                getmetatable(self)[handlename] = function (_, respone)
-                    -- self:log("http_request:", respone)
+                getmetatable(self)[handlename] = function (_, req)
+                    -- self:log("http_request:", req)
 
-                    if respone.req_session == 0 then
-                        try(handle.error, respone.error)
-                        error("httpserver start failed!", respone.error)
+                    if req.req_session == 0 then
+                        try(handle.error, req.error)
+                        error("httpserver start failed!", req.error)
                     else
-                        local method = respone.method:lower()
-                        local path = respone.path
+                        local method = req.method:lower()
+                        local path = req.path
                         local f = handle[method] and handle[method][path]
-                        local statuscode, result
-                        if f then
-                            statuscode = 200
-                            result = f(respone.query, respone.header, respone.body) or ""
-                        else
-                            statuscode = 502
-                            result = ""
+
+                        local function response(statuscode, result)
+                            if not result then
+                                result = statuscode
+                                statuscode = 200
+                            end
+                            if type(result) == "table" then
+                                result = json.encode(result)
+                            end
+                            wind.call(config.proxyservice, "request", session, "httpserver_response", {
+                                req_session = req.req_session,
+                                statuscode = statuscode,
+                                body = result
+                            })
                         end
-                        wind.call(config.proxyservice, "request", session, "httpserver_response", {
-                            req_session = respone.req_session,
-                            statuscode = statuscode,
-                            body = result
-                        })
+
+                        if f then
+                            req.header = concat_golang_header(req.header)
+                            if is_json_http_request(req.header) then
+                                local ok, body = pcall(json.decode, req.body)
+                                if ok then
+                                    req.body = body
+                                end
+                            end
+
+                            local ctx = {
+                                query = req.query,
+                                header = req.header,
+                                body = req.body,
+                                response = response
+                            }
+                            -- statuscode is optional
+                            local statuscode, result = f(ctx)
+                            if statuscode then
+                                response(statuscode, result)
+                            end
+                        else
+                            response(502, "")
+                        end
+
                     end
                 end
                 wind.call(config.proxyservice, "request", session, "httpserver_create", params, {name = self._name, handlename = handlename})
@@ -278,7 +311,8 @@ function M._require_class(name)
                 getmetatable(self)[handlename] = function (_, respone)
                     if respone.error == "" then
                         respone.error = nil
-                        if respone.body ~= "" and respone.header and is_json_respone(respone.header) then
+                        respone.header = concat_golang_header(respone.header)
+                        if respone.body ~= "" and respone.header and is_json_http_request(respone.header) then
                             -- Not every respone content-type is consistent
                             local ok, body = pcall(json.decode, respone.body)
                             if ok then

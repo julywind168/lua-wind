@@ -99,7 +99,7 @@ func (s *HttpServer) Response(r interface{}) {
 	response(s.Client, r)
 }
 
-func (s *HttpServer) Close() {
+func (s *HttpServer) Shutdown() {
 	s.Echo.Close()
 }
 

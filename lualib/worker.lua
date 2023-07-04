@@ -218,14 +218,18 @@ function M._require_class(name)
             return content_type and content_type:find("application/json")
         end
 
+        function class:_new_session()
+            self._session = (self._session or 0) + 1
+            local handlename = string.format("__handle_%d", self._session)
+            local session = string.format("%s_%s_%d", wind.starttime, self._name, self._session)
+            return session, handlename
+        end
+
         if not class.httpserver then
             function class:httpserver(params, handle)
                 params.port = tostring(assert(params.port))
                 params.timeout = params.timeout or 5
-
-                self._session = (self._session or 0) + 1
-                local handlename = "__httpserver_"..self._session
-                local session = string.format("%s_%s_%d", wind.starttime, self._name, self._session)
+                local session, handlename = self:_new_session()
 
                 getmetatable(self)[handlename] = function (_, req)
                     -- self:log("http_request:", req)
@@ -280,6 +284,10 @@ function M._require_class(name)
                     end
                 end
                 wind.call(config.proxyservice, "request", session, "httpserver_create", params, {name = self._name, handlename = handlename})
+
+                return function ()
+                    wind.call(config.proxyservice, "request", session, "httpserver_shutdown", {})
+                end
             end
         end
 
@@ -305,9 +313,7 @@ function M._require_class(name)
                     params.body = json.encode(params.body)
                 end
 
-                self._session = (self._session or 0) + 1
-                local handlename = "__http_request_"..self._session
-                local session = string.format("%s_%s_%d", wind.starttime, self._name, self._session)
+                local session, handlename = self:_new_session()
                 getmetatable(self)[handlename] = function (_, respone)
                     if respone.error == "" then
                         respone.error = nil
@@ -328,14 +334,14 @@ function M._require_class(name)
         end
 
         if not class.connect then
-            function class:connect(config, handle)
-                config.protocol = config.protocol or "tcp"
+            function class:connect(conf, handle)
+                conf.protocol = conf.protocol or "tcp"
                 local fd, err
 
-                if config.protocol == "tcp" then
-                    fd, err = socket.connect(assert(config.host), assert(config.port), config.family)
-                elseif config.protocol == "unix" then
-                    fd, err = socket.unix_connect(assert(config.sockpath))
+                if conf.protocol == "tcp" then
+                    fd, err = socket.connect(assert(conf.host), assert(conf.port), conf.family)
+                elseif conf.protocol == "unix" then
+                    fd, err = socket.unix_connect(assert(conf.sockpath))
                 end
 
                 if err then
@@ -362,13 +368,69 @@ function M._require_class(name)
 
         -- tcp listen, host is optional
         if not class.listen then
-            function class:listen(host, port, handle)
-                assert(port)
-                if not handle then
-                    handle = port
-                    port = host
-                    host = "0.0.0.0"
+
+            function class:_websockt_listen(conf, handle)
+                conf.host = conf.host  or "0.0.0.0"
+                conf.path = conf.path or "/"
+                conf.port = tostring(assert(conf.port))
+                
+                local session, handlename = self:_new_session()
+
+                --[[
+                    msg: {
+                        client = 0,                 -- client id
+                        addr = "127.0.0.1:8888"     -- client address
+                        error = "start failed",
+                        type = 1,                   -- 1:connect  2:msg  3:error  4:close
+                        msg = "hello server",
+                    }
+                ]]
+                getmetatable(self)[handlename] = function (_, msg)
+                    if msg.client == 0 then
+                        error("websockt server start failed!" .. tostring(msg.error))
+                    end
+
+                    if msg.type == 1 then
+                        try(handle.connect, msg.client, msg.addr)
+                    elseif msg.type == 2 then
+                        try(handle.message, msg.client, msg.msg)
+                    elseif msg.type == 3 then
+                        try(handle.error, msg.client, msg.error)
+                    elseif msg.type == 4 then
+                        try(handle.close, msg.client)
+                    else
+                        error("invalid msg.type", msg.type)
+                    end
                 end
+
+                wind.call(config.proxyservice, "request", session, "wsserver_create", conf, {name = self._name, handlename = handlename})
+
+
+                local ws = {}
+
+                function ws.send(client, msg)
+                    wind.call(config.proxyservice, "request", session, "wsserver_send", {client = client, msg = msg})
+                end
+
+                function ws.close(client)
+                    wind.call(config.proxyservice, "request", session, "wsserver_close", {client = client})
+                end
+
+                function ws.shutdown()
+                    wind.call(config.proxyservice, "request", session, "wsserver_shutdown", {})
+                end
+
+                return ws
+            end
+
+
+            function class:listen(conf, handle)
+                if conf.protocol == "websockt" then
+                    return self:_websockt_listen(conf, handle)
+                end
+
+                local host = conf.host or "0.0.0.0"
+                local port = assert(conf.port)
 
                 local fd, err = socket.listen(host, port)
                 if err then

@@ -11,11 +11,14 @@ import (
 	"net"
 	"net/http"
 	"os"
+
+	"github.com/gorilla/websocket"
 )
 
 const socketPath = "/tmp/windproxy.sock"
 
 var httpserver_session = make(map[string]HttpServer)
+var wsserver_session = make(map[string]WsServer)
 
 func main() {
 	cleanup()
@@ -70,6 +73,7 @@ func handleRequest(c net.Conn, message []byte) {
 	cmd := data[1].(string)
 	params := data[2].(map[string]interface{})
 
+	// ===================== http-request =====================
 	if cmd == "http_request" {
 		body, header, err := do_http_request(params)
 		if err != nil {
@@ -84,6 +88,7 @@ func handleRequest(c net.Conn, message []byte) {
 				Body:    body,
 			})
 		}
+		// ===================== httpserver =====================
 	} else if cmd == "httpserver_create" {
 		port := params["port"].(string)
 		timeout := params["timeout"].(float64)
@@ -101,11 +106,39 @@ func handleRequest(c net.Conn, message []byte) {
 		body := params["body"].(string)
 		s := httpserver_session[session]
 		s.OnHttpResponse(int(req_session), HttpServerReqResult{int(statuscode), body})
-	} else if cmd == "httpserver_close" {
+	} else if cmd == "httpserver_shutdown" {
 		s := httpserver_session[session]
-		s.Close()
+		s.Shutdown()
 		CleanHttpServer(session)
+		// ===================== wsserver =====================
+	} else if cmd == "wsserver_create" {
+		port := params["port"].(string)
+		path := params["path"].(string)
+		s := WsServer{
+			Client:  c,
+			Session: session,
+			connMap: make(map[string]*websocket.Conn),
+		}
+		go s.Start(port, path)
+		wsserver_session[session] = s
+	} else if cmd == "wsserver_send" {
+		client := params["client"].(string)
+		msg := params["msg"].(string)
+		s := wsserver_session[session]
+		s.Send(client, msg)
+	} else if cmd == "wsserver_close" {
+		client := params["client"].(string)
+		s := wsserver_session[session]
+		s.Close(client)
+	} else if cmd == "wsserver_shutdown" {
+		s := wsserver_session[session]
+		s.Shutdown()
+		CleanWsServer(session)
 	}
+}
+
+func CleanWsServer(session string) {
+	delete(wsserver_session, session)
 }
 
 func CleanHttpServer(session string) {
@@ -160,6 +193,14 @@ func cleanup() {
 		if err := os.RemoveAll(socketPath); err != nil {
 			fmt.Println(err)
 		}
+	}
+	for key, value := range httpserver_session {
+		value.Shutdown()
+		delete(httpserver_session, key)
+	}
+	for key, value := range wsserver_session {
+		value.Shutdown()
+		delete(wsserver_session, key)
 	}
 }
 

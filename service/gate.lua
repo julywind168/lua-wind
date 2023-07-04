@@ -26,7 +26,7 @@ function Gate:__init()
         self:log("closed", fd)
     end
 
-    self:listen(6666, handle)
+    self:listen({port = 6666}, handle)
     self:log("listen on 6666")
 end
 

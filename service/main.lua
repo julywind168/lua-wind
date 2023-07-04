@@ -32,6 +32,7 @@ function Main:__init()
 
 
     -- http server example
+    --[[
     local get = {
         ["/joker"] =  function (c)
             self:fetch("https://api.vvhan.com/api/joke", function (r)
@@ -47,6 +48,8 @@ function Main:__init()
     }
 
     self:httpserver({port = 8888}, {get = get, post = post})
+    --]]
+    wind.newservice(1, "test_wsserver")
 end
 
 

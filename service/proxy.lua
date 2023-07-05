@@ -34,13 +34,12 @@ function Proxy:__init()
     local packs
 
     function handle.message(msg)
-        -- self:log("recv: ", #msg, msg)
-
         last, packs = split(last..msg)
         for _, pack in ipairs(packs) do
             local response = json.decode(pack)
             local session = response.session
             local source = session_source[session]
+            -- self:log("recv: ", response)
             response.session = nil
             wind.call(source.name, source.handlename, response)
         end
@@ -57,7 +56,7 @@ function Proxy:__init()
     local fd = self:connect({protocol = "unix", sockpath = SOCKPATH}, handle)
     if fd then
         function Proxy:request(session, name, params, source)
-            self:log("request", session, name, params, source)
+            -- self:log("send", session, name, params, source)
             if source then
                 session_source[session] = source
             end

@@ -227,6 +227,7 @@ function M._require_class(name)
 
         if not class.httpserver then
             function class:httpserver(params, handle)
+                params.host = params.host or "0.0.0.0"
                 params.port = tostring(assert(params.port))
                 params.timeout = params.timeout or 5
                 local session, handlename = self:_new_session()

@@ -19,9 +19,10 @@ type WsServer struct {
 	Session string
 	connMap map[string]*websocket.Conn
 	Echo    *echo.Echo
+	Address string
 }
 
-func (s *WsServer) Start(port string, path string) {
+func (s *WsServer) Start(addr string, path string) {
 	e := echo.New()
 	e.Logger.SetLevel(log.INFO)
 
@@ -45,8 +46,6 @@ func (s *WsServer) Start(port string, path string) {
 			Addr:    ws.RemoteAddr().String(),
 		})
 
-		ws.WriteMessage(websocket.TextMessage, []byte("hello client!"))
-
 		for {
 			_, msg, err := ws.ReadMessage()
 			if err != nil {
@@ -65,7 +64,7 @@ func (s *WsServer) Start(port string, path string) {
 
 				return err
 			}
-			fmt.Printf("message: %s\n", msg)
+			// fmt.Printf("message: %s\n", msg)
 			// message
 			s.Response(WsServerResponse{
 				Session: s.Session,
@@ -78,7 +77,7 @@ func (s *WsServer) Start(port string, path string) {
 
 	e.GET(path, handle)
 	s.Echo = e
-	if err := e.Start(":" + port); err != nil && err != http.ErrServerClosed {
+	if err := e.Start(addr); err != nil && err != http.ErrServerClosed {
 		e.Logger.Fatalf("Failed to start server: %v", err)
 		s.Response(WsServerResponse{
 			Session: s.Session,
@@ -101,6 +100,7 @@ func (s *WsServer) Close(client string) {
 }
 
 func (s *WsServer) Shutdown() {
+	println("WsServer.Shutdown =========================", s.Address)
 	s.Echo.Close()
 }
 

@@ -32,9 +32,10 @@ type HttpServer struct {
 	ReqSession int
 	ReqChan    map[int]chan HttpServerReqResult // req_session => chan
 	Echo       *echo.Echo
+	Address    string
 }
 
-func (s *HttpServer) Start(port string, timeout int) {
+func (s *HttpServer) Start(addr string, timeout int) {
 	e := echo.New()
 	e.Logger.SetLevel(log.INFO)
 
@@ -78,7 +79,7 @@ func (s *HttpServer) Start(port string, timeout int) {
 	e.POST("/*", handle)
 
 	s.Echo = e
-	if err := e.Start(":" + port); err != nil && err != http.ErrServerClosed {
+	if err := e.Start(addr); err != nil && err != http.ErrServerClosed {
 		e.Logger.Fatalf("Failed to start server: %v", err)
 		s.Response(HttpServerResponse{
 			Session: s.Session,
@@ -100,7 +101,8 @@ func (s *HttpServer) Response(r interface{}) {
 }
 
 func (s *HttpServer) Shutdown() {
-	s.Echo.Close()
+	println("HttpServer.Shutdown =========================", s.Address)
+	s.Echo.Shutdown(context.Background())
 }
 
 type HttpServerResponse struct {

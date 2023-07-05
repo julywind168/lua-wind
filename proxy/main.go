@@ -19,6 +19,7 @@ const socketPath = "/tmp/windproxy.sock"
 
 var httpserver_session = make(map[string]*HttpServer)
 var wsserver_session = make(map[string]*WsServer)
+var wsclient_session = make(map[string]*WsClient)
 
 func main() {
 	if _, err := os.Stat(socketPath); err == nil {
@@ -96,6 +97,7 @@ func handleRequest(c net.Conn, message []byte) {
 				Body:    body,
 			})
 		}
+
 		// ===================== httpserver =====================
 	} else if cmd == "httpserver_create" {
 		host := params["host"].(string)
@@ -121,7 +123,8 @@ func handleRequest(c net.Conn, message []byte) {
 		s := httpserver_session[session]
 		s.Shutdown()
 		CleanHttpServer(session)
-		// ===================== wsserver =====================
+
+		// ===================== websockt server =====================
 	} else if cmd == "wsserver_create" {
 		host := params["host"].(string)
 		port := params["port"].(string)
@@ -147,7 +150,29 @@ func handleRequest(c net.Conn, message []byte) {
 		s := wsserver_session[session]
 		s.Shutdown()
 		CleanWsServer(session)
+
+		// ===================== websockt client =====================
+	} else if cmd == "wsclient_connect" {
+		url := params["url"].(string)
+		ws := WsClient{
+			Client:  c,
+			Session: session,
+		}
+		go ws.Start(url)
+		wsclient_session[session] = &ws
+	} else if cmd == "wsclient_send" {
+		msg := params["msg"].(string)
+		c := wsclient_session[session]
+		c.Send(msg)
+	} else if cmd == "wsclient_shutdown" {
+		c := wsclient_session[session]
+		c.Shutdown()
+		CleanWsClient(session)
 	}
+}
+
+func CleanWsClient(session string) {
+	delete(wsclient_session, session)
 }
 
 func CleanWsServer(session string) {
@@ -210,6 +235,10 @@ func cleanup() {
 	for key, value := range wsserver_session {
 		value.Shutdown()
 		delete(wsserver_session, key)
+	}
+	for key, value := range wsclient_session {
+		value.Shutdown()
+		delete(wsclient_session, key)
 	}
 }
 

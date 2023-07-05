@@ -15,8 +15,9 @@ function Main:__init()
 
 
 
-    -- wind.newservice(1, "test_wsserver")
-    wind.newservice(1, "test_httpserver")
+    wind.newservice(1, "test_wsserver")
+    wind.sleep(1)
+    wind.newservice(1, "test_wsclient")
 end
 
 

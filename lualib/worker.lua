@@ -335,6 +335,48 @@ function M._require_class(name)
         end
 
         if not class.connect then
+            function class:_websockt_connect(conf, handle)
+                assert(conf.url)
+                local ws = {}
+                local session, handlename = self:_new_session()
+                --[[
+                    msg: {
+                        error = "start failed",
+                        type = 1,                   -- 1:connect  2:msg  3:close
+                        msg = "hello server",
+                    }
+                ]]
+                getmetatable(self)[handlename] = function (_, msg)
+                    if msg.type == 1 then
+                        if msg.error ~= "" then
+                            error(string.format("websockt connect failed, url:%s error:$s", conf.url, msg.error))
+                        end
+                        ws.connected = true
+                        try(handle.connect)
+                    elseif msg.type == 2 then
+                        try(handle.message, msg.msg)
+                    elseif msg.type == 3 then
+                        try(handle.close, msg.error)
+                    else
+                        error("websockt client: invalid msg.type "..tostring(msg.type))
+                    end
+                end
+
+                wind.call(config.proxyservice, "request", session, "wsclient_connect", conf, {name = self._name, handlename = handlename})
+
+                function ws.send(msg)
+                    assert(ws.connected)
+                    wind.call(config.proxyservice, "request", session, "wsclient_send", {msg = msg})
+                end
+
+                function ws.close()
+                    assert(ws.connected)
+                    wind.call(config.proxyservice, "request", session, "wsclient_shutdown", {})
+                end
+
+                return ws
+            end
+
             function class:connect(conf, handle)
                 conf.protocol = conf.protocol or "tcp"
                 local fd, err
@@ -343,6 +385,10 @@ function M._require_class(name)
                     fd, err = socket.connect(assert(conf.host), assert(conf.port), conf.family)
                 elseif conf.protocol == "unix" then
                     fd, err = socket.unix_connect(assert(conf.sockpath))
+                elseif conf.protocol == "websockt" then
+                    return self:_websockt_connect(conf, handle)
+                else
+                    error("invalid protocol:"..tostring(conf.protocol))
                 end
 
                 if err then
@@ -382,7 +428,7 @@ function M._require_class(name)
                         client = 0,                 -- client id
                         addr = "127.0.0.1:8888"     -- client address
                         error = "start failed",
-                        type = 1,                   -- 1:connect  2:msg  3:error  4:close
+                        type = 1,                   -- 1:connect  2:msg  3:close
                         msg = "hello server",
                     }
                 ]]
@@ -396,11 +442,9 @@ function M._require_class(name)
                     elseif msg.type == 2 then
                         try(handle.message, msg.client, msg.msg)
                     elseif msg.type == 3 then
-                        try(handle.error, msg.client, msg.error)
-                    elseif msg.type == 4 then
-                        try(handle.close, msg.client)
+                        try(handle.close, msg.client, msg.error)
                     else
-                        error("invalid msg.type", msg.type)
+                        error("websockt server: invalid msg.type "..tostring(msg.type))
                     end
                 end
 

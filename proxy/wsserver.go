@@ -84,7 +84,7 @@ func (s *WsServer) Start(addr string, path string) {
 			Client:  "0",
 			Error:   err.Error(),
 		})
-		CleanHttpServer(s.Session)
+		CleanWsServer(s.Session)
 	}
 }
 
@@ -100,7 +100,7 @@ func (s *WsServer) Close(client string) {
 }
 
 func (s *WsServer) Shutdown() {
-	println("WsServer.Shutdown =========================", s.Address)
+	println("WsServer.Shutdown", s.Address)
 	s.Echo.Close()
 }
 
@@ -124,7 +124,6 @@ func (s *WsServer) Response(r interface{}) {
 const (
 	WS_TCONNECT = iota + 1
 	WS_TMSG
-	WS_TERROR
 	WS_TCLOSE
 )
 

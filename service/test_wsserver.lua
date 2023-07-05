@@ -18,12 +18,8 @@ function TestWsServer:__init()
         ws.send(id, msg)
     end
 
-    function handle.error(id, errmsg)
-        self:log("error", id, errmsg)
-    end
-
-    function handle.close(id)
-        self:log("closed", id)
+    function handle.close(id, errmsg)
+        self:log("closed", id, errmsg)
     end
 
     ws = self:listen({protocol = "websockt", port = 8888}, handle)

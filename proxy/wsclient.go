@@ -69,7 +69,6 @@ func (c *WsClient) Send(msg string) {
 func (c *WsClient) Shutdown() {
 	c.Conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 	c.Conn.Close()
-	println("WsClient.Shutdown", c.Url)
 }
 
 // end

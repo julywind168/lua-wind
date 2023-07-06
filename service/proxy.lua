@@ -36,10 +36,10 @@ function Proxy:__init()
     function handle.message(msg)
         last, packs = split(last..msg)
         for _, pack in ipairs(packs) do
+            -- self:log("recv", #pack, pack)
             local response = json.decode(pack)
             local session = response.session
             local source = session_source[session]
-            -- self:log("recv: ", response)
             response.session = nil
             wind.call(source.name, source.handlename, response)
         end

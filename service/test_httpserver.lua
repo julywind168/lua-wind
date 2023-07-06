@@ -22,9 +22,6 @@ function TestHttpServer:__init()
     self:httpserver({port = 8888}, {get = get, post = post})
 end
 
-function TestHttpServer:test_fetch()
-
-end
 
 
 return TestHttpServer

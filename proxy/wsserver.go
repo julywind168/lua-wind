@@ -7,7 +7,6 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/gommon/log"
 )
 
 var (
@@ -24,7 +23,6 @@ type WsServer struct {
 
 func (s *WsServer) Start(addr string, path string) {
 	e := echo.New()
-	e.Logger.SetLevel(log.INFO)
 
 	handle := func(c echo.Context) error {
 		ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
@@ -33,7 +31,7 @@ func (s *WsServer) Start(addr string, path string) {
 			return err
 		}
 		defer ws.Close()
-		fmt.Println("Websocket client connect from:", ws.RemoteAddr().String())
+		// log.Println("Websocket client connect from:", ws.RemoteAddr().String())
 
 		id := fmt.Sprintf("%p", ws)
 		s.connMap[id] = ws
@@ -100,7 +98,6 @@ func (s *WsServer) Close(client string) {
 }
 
 func (s *WsServer) Shutdown() {
-	println("WsServer.Shutdown", s.Address)
 	s.Echo.Close()
 }
 

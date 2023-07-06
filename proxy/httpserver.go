@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
 )
 
@@ -37,6 +38,7 @@ type HttpServer struct {
 
 func (s *HttpServer) Start(addr string, timeout int) {
 	e := echo.New()
+	e.Use(Logger())
 	e.Logger.SetLevel(log.INFO)
 
 	handle := func(c echo.Context) error {
@@ -101,7 +103,6 @@ func (s *HttpServer) Response(r interface{}) {
 }
 
 func (s *HttpServer) Shutdown() {
-	println("HttpServer.Shutdown =========================", s.Address)
 	s.Echo.Shutdown(context.Background())
 }
 
@@ -123,4 +124,11 @@ type HttpServerResponse struct {
 type HttpServerReqResult struct {
 	StatusCode int
 	Body       string
+}
+
+func Logger() echo.MiddlewareFunc {
+	return middleware.LoggerWithConfig(middleware.LoggerConfig{
+		Format:           `[${time_custom}] ${method} ${host}${path} ${latency_human}` + "\n",
+		CustomTimeFormat: "2006-01-02 15:04:05",
+	})
 }

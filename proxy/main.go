@@ -2,26 +2,48 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
+	"log"
 	"net"
-	"net/http"
 	"os"
 
 	"github.com/gorilla/websocket"
+	"github.com/sevlyar/go-daemon"
 )
 
 const socketPath = "/tmp/windproxy.sock"
+const MAX_PACKSIZE = 65535
 
 var httpserver_session = make(map[string]*HttpServer)
 var wsserver_session = make(map[string]*WsServer)
 var wsclient_session = make(map[string]*WsClient)
 
 func main() {
+	cntxt := &daemon.Context{
+		PidFileName: "echo.pid",
+		PidFilePerm: 0644,
+		LogFileName: "server.log",
+		LogFilePerm: 0640,
+		WorkDir:     "./",
+		Umask:       027,
+		Args:        []string{"[wind-proxy]"},
+	}
+
+	d, err := cntxt.Reborn()
+	if err != nil {
+		log.Fatal("Unable to run: ", err)
+	}
+	if d != nil {
+		return
+	}
+	defer cntxt.Release()
+
+	log.Print("- - - - - - - - - - - - - - -")
+	log.Print("daemon started")
+
 	if _, err := os.Stat(socketPath); err == nil {
 		if err := os.RemoveAll(socketPath); err != nil {
 			fmt.Println(err)
@@ -35,7 +57,7 @@ func main() {
 	}
 	defer listener.Close()
 
-	fmt.Printf("Listening on Unix Domain Socket %s\n", socketPath)
+	log.Printf("Listening on Unix Domain Socket %s\n", socketPath)
 	for {
 		client, err := listener.Accept()
 		if err != nil {
@@ -52,7 +74,7 @@ func handleClient(c net.Conn) {
 		pkgLenBuf := make([]byte, 2)
 		if _, err := io.ReadFull(reader, pkgLenBuf); err != nil {
 			if err != io.EOF {
-				fmt.Printf("Error reading package length from socket: %v\n", err)
+				log.Printf("Error reading package length from socket: %v\n", err)
 			}
 			break
 		}
@@ -60,11 +82,11 @@ func handleClient(c net.Conn) {
 		pkgBuf := make([]byte, pkgLen)
 		if _, err := io.ReadFull(reader, pkgBuf); err != nil {
 			if err != io.EOF {
-				fmt.Printf("Error reading package body from socket: %v\n", err)
+				log.Printf("Error reading package body from socket: %v\n", err)
 			}
 			break
 		}
-		fmt.Printf("Received package with length %v: %v\n", pkgLen, string(pkgBuf))
+		// log.Printf("Received package with length %v: %v\n", pkgLen, string(pkgBuf))
 		go handleRequest(c, pkgBuf)
 	}
 	// disconnect to wind, cleanup
@@ -84,19 +106,21 @@ func handleRequest(c net.Conn, message []byte) {
 
 	// ===================== http-request =====================
 	if cmd == "http_request" {
-		body, header, err := do_http_request(params)
-		if err != nil {
-			response(c, HttpRequestResponse{
-				Session: session,
-				Error:   err.Error(),
-			})
-		} else {
-			response(c, HttpRequestResponse{
-				Session: session,
-				Header:  header,
-				Body:    body,
-			})
-		}
+		go func() {
+			body, header, err := do_http_request(params)
+			if err != nil {
+				response(c, HttpRequestResponse{
+					Session: session,
+					Error:   err.Error(),
+				})
+			} else {
+				response(c, HttpRequestResponse{
+					Session: session,
+					Header:  header,
+					Body:    body,
+				})
+			}
+		}()
 
 		// ===================== httpserver =====================
 	} else if cmd == "httpserver_create" {
@@ -162,11 +186,11 @@ func handleRequest(c net.Conn, message []byte) {
 		wsclient_session[session] = &ws
 	} else if cmd == "wsclient_send" {
 		msg := params["msg"].(string)
-		c := wsclient_session[session]
-		c.Send(msg)
+		ws := wsclient_session[session]
+		ws.Send(msg)
 	} else if cmd == "wsclient_shutdown" {
-		c := wsclient_session[session]
-		c.Shutdown()
+		ws := wsclient_session[session]
+		ws.Shutdown()
 		CleanWsClient(session)
 	}
 }
@@ -183,51 +207,21 @@ func CleanHttpServer(session string) {
 	delete(httpserver_session, session)
 }
 
-func do_http_request(params map[string]interface{}) (string, http.Header, error) {
-	method := params["method"].(string)
-	url := params["url"].(string)
-	body := params["body"].(string)
-	header := params["header"].(map[string]interface{})
-
-	req, err := http.NewRequest(method, url, bytes.NewBuffer([]byte(body)))
-	if err != nil {
-		return "", nil, err
-	}
-	for key, value := range header {
-		req.Header.Set(key, value.(string))
-	}
-
-	httpc := &http.Client{}
-	resp, err := httpc.Do(req)
-	if err != nil {
-		return "", nil, err
-	}
-	defer resp.Body.Close()
-
-	result, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", nil, err
-	} else {
-		return string(result), resp.Header, nil
-	}
-}
-
 func response(client net.Conn, r interface{}) {
 	response, err := json.Marshal(r)
 	if err != nil {
-		fmt.Println(err)
+		log.Println("response error", err)
 		return
 	}
 	_, err = client.Write(string_pack(response))
 	if err != nil {
-		fmt.Println(err)
+		log.Println("response error", err)
 		return
 	}
-	fmt.Printf("Sent message to client: %s\n", string(response))
+	// log.Printf("Sent message to client: %s\n", string(response))
 }
 
 func cleanup() {
-	fmt.Println("cleanup =======================================")
 	for key, value := range httpserver_session {
 		value.Shutdown()
 		delete(httpserver_session, key)
@@ -245,18 +239,10 @@ func cleanup() {
 // 大端2字节
 func string_pack(data []byte) []byte {
 	var length int = len(data)
-	if length > (int(math.Pow(2, 16)) - 1) {
+	if length > MAX_PACKSIZE {
 		panic(fmt.Sprintf("Value %d is out of range for uint16", length))
 	}
-	headerBytes := make([]byte, 2)
-	binary.BigEndian.PutUint16(headerBytes, uint16(length))
-	newData := append(headerBytes, data...)
-	return newData
-}
-
-type HttpRequestResponse struct {
-	Session string      `json:"session"`
-	Error   string      `json:"error"`
-	Header  http.Header `json:"header"`
-	Body    string      `json:"body"`
+	pack := make([]byte, 2, 2+length)
+	binary.BigEndian.PutUint16(pack, uint16(length))
+	return append(pack, data...)
 }

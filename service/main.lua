@@ -14,10 +14,8 @@ function Main:__init()
     self:log("start")
 
 
-
-    wind.newservice(1, "test_wsserver")
-    wind.sleep(1)
-    wind.newservice(1, "test_wsclient")
+    -- mongo service should monopolize one worker thread
+    wind.newservice(2, "mongo")
 end
 
 

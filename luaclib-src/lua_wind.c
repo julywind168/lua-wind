@@ -16,6 +16,12 @@
 #include "lua_timerfd.h"
 #include "lua_eventfd.h"
 #include "lua_cjson.h"
+#include "lua_crypt.h"
+
+#include "md5.h"
+#include "bson.h"
+#include "lua-mongo.h"
+#include "lua-socket.h"
 
 #include "queue.h"
 
@@ -162,6 +168,16 @@ static void * ll_thread(void *arg) {
 	luaL_requiref(L, "wind.core", lua_lib_wind_core, 0);
 	lua_pop(L, 1);
 	luaL_requiref(L, "wind.cjson", luaopen_cjson, 0);
+	lua_pop(L, 1);
+	luaL_requiref(L, "wind.crypt", luaopen_lcrypt, 0);
+	lua_pop(L, 1);
+	luaL_requiref(L, "wind.md5", luaopen_md5_core, 0);
+	lua_pop(L, 1);
+	luaL_requiref(L, "wind.bson", luaopen_bson, 0);
+	lua_pop(L, 1);
+	luaL_requiref(L, "wind.mongo.socket", luaopen_mongo_socket, 0);
+	lua_pop(L, 1);
+	luaL_requiref(L, "wind.mongo.driver", luaopen_mongo_driver, 0);
 	lua_pop(L, 1);
 	// end
 

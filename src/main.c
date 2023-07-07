@@ -3,7 +3,6 @@
 #include <lualib.h>
 
 #include "lua_wind.h"
-#include "lua_cjson.h"
 #include "lua_serialize.h"
 
 
@@ -14,8 +13,6 @@ void openlibs(lua_State *L) {
 	luaL_requiref(L, "wind.core", lua_lib_wind_core, 0);
 	lua_pop(L, 1);
 	luaL_requiref(L, "wind.serialize", lua_lib_serialize, 0);
-	lua_pop(L, 1);
-	luaL_requiref(L, "wind.cjson", luaopen_cjson, 0);
 	lua_pop(L, 1);
 }
 

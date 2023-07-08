@@ -509,7 +509,7 @@ end
 -- attach end
 
 
-function M.start()
+local function _start()
     local epfd = assert(epoll.create())
     M.epfd = epfd
     local tfd = timerfd.create()
@@ -567,6 +567,11 @@ function M.start()
 
     epoll.close(epfd)
     timerfd.close(tfd)
+end
+
+
+function M.start()
+    print(xpcall(_start, debug.traceback))
 end
 
 

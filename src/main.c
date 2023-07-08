@@ -28,10 +28,12 @@ int main(int argc, char const *argv[])
 
 	openlibs(L);
 
-	int err = luaL_loadfile(L, argv[1]) || lua_call(L, 0, 0);
+	int err = luaL_loadfile(L, argv[1]);
 	if (err) {
 		fprintf(stderr, "%s\n", lua_tostring(L, -1));
 		lua_pop(L, 1);
+	} else {
+		lua_call(L, 0, 0);
 	}
 
 	lua_close(L);

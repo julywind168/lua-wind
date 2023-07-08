@@ -28,7 +28,7 @@ int main(int argc, char const *argv[])
 
 	openlibs(L);
 
-	int err = luaL_loadfile(L, argv[1]) || lua_pcall(L, 0, 0, 0);
+	int err = luaL_loadfile(L, argv[1]) || lua_call(L, 0, 0);
 	if (err) {
 		fprintf(stderr, "%s\n", lua_tostring(L, -1));
 		lua_pop(L, 1);

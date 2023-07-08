@@ -2,7 +2,14 @@
 A multithreading framework written for lua
 
     Wind 的目标是 一个跨平台的, 可用于（游戏）服务端/客户端 的 多线程运行时。
-    目前主要方向是 linux 服务端的开发
+[main](https://github.com/HYbutterfly/wind)
+    wind 框架的核心功能, 未来期望是多平台运行
+
+[server]( https://github.com/HYbutterfly/wind/tree/server )
+    包含核心及服务端开发需要的功能 (http, websocket, mongodb, cjson, md5 ...) , 目标平台: linux
+    
+[ddz]( https://github.com/HYbutterfly/wind/tree/ddz )
+    基于 server 分支 开发的 简版斗地主 demo
 
 ## Test (only linux now)
 ```

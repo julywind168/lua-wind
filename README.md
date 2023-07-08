@@ -21,16 +21,11 @@ A multithreading framework written for lua
     6. ./wind main.lua
 ```
 
-## Server 分支说明
-    这个分支相对于 main 分支，添加了很多服务端开发必备的功能
-
-    1. 添加了一个 独立的 golang proxy 进程, wind 框架 通过 Unix socket 与之连接, 借用 golang 的生态
-        实现了 http/websocket 的正反代理, 大家也可以根据自己需求 修改 proxy 来添加更多功能！(这样做的
-        前提是在lua 或 c 实现中 很难或很复杂)
-
-    2. mongo 驱动, 这部分代码大部分来自 skynet, 其中的 socket 部分用的是 lua-mongo 中的。
-
-    3. 还有一些 c 库, cjson md5 crypt ...
+## ddz 分支说明
+```
+    这是基于 server 分支 开发的一个 简版斗地主 demo, 旨在通过一个实际案例来展示 wind框架 的使用
+    client 计划将基于 svelte + flowbite 开发
+```
 
 
 ## Thanks

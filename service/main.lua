@@ -13,9 +13,14 @@ local Main = {}
 function Main:__init()
     self:log("start")
 
-
     -- mongo service should monopolize one worker thread
-    wind.newservice(2, "mongo")
+    -- wind.newservice(2, "mongo")
+
+    wind.newservice(1, "test_httpclient")
+    
+    self:call("test_httpclient", "joke", function (joke)
+        self:log("joke:", joke)
+    end)
 end
 
 

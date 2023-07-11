@@ -164,6 +164,39 @@ function M._require_class(name)
     if not M.class_cache[name] then
         local class = require(string.format("service.%s", name))
 
+        if not class.call then
+            function class:call(service_name, func_name, ...)
+                local params = {...}
+                local callback = params[#params]
+                local is_call = false
+                if type(callback) == "function" then
+                    is_call = true
+                    params[#params] = nil
+                else
+                    callback = function (...)
+                        -- this call is not need returns
+                    end
+                end
+
+                local s = M.service[service_name]
+                if s then
+                    wind.ret = callback
+                    M._callservice(self._name, nil, service_name, func_name, table.unpack(params))
+                else
+                    local _, handlename
+                    if is_call then
+                        _, handlename = self:_new_session()
+                        getmetatable(self)[handlename] = function (_, ...)
+                            callback(...)
+                            getmetatable(self)[handlename] = nil
+                        end
+                    end
+                    local worker = assert(M.service_worker[service_name])
+                    wind.send(worker, "callservice", self._name, handlename, service_name, func_name, table.unpack(params))
+                end
+            end
+        end
+
         if not class.moveto then
             function class:moveto(dest_worker)
                 wind.moveto(self._name, dest_worker)
@@ -540,10 +573,20 @@ function M._newservice(name, classname, s, is_move)
     return service
 end
 
-function M._callservice(service_name, name, ...)
+function M._callservice(source_name, source_handlename, service_name, func_name, ...)
     local s = M.service[service_name]
-    local f = s[name]
-    return f(s, ...)
+    local f = s[func_name]
+    if source_handlename then
+        wind.ret = function (...)
+            wind.send(M.service_worker[source_name], "callservice", service_name, nil, source_name, source_handlename, ...)
+        end
+    end
+    local function done(...)
+        if select("#", ...) > 0 then
+            wind.ret(...)
+        end
+    end
+    done(f(s, ...))
 end
 
 function M._reload_one(name)
@@ -719,12 +762,12 @@ end
 function wind.call(name, ...)
     local service = M.service[name]
     if service then
-        M._callservice(name, ...)
+        M._callservice(nil, nil, name, ...)
         return true
     end
     local worker = M.service_worker[name]
     if worker then
-        wind.send(worker, "callservice", name, ...)
+        wind.send(worker, "callservice", nil, nil, name, ...)
         return true
     else
         error(string.format("not found service[%s]", name))
